@@ -8,14 +8,31 @@
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <style>
     :root {
-      --bg-color-1: #1e3c72;
-      --bg-color-2: #2a5298;
-      --bg-color-3: #2e1e72;
-      --bg-color-4: #522a98;
+      /* تم روشن (پیش‌فرض) - همان گرادیان آبی قبلی */
+      --bg-gradient: linear-gradient(-45deg, #1e3c72, #2a5298, #2e1e72, #522a98);
       --text-color: #ffffff;
+      --text-color-light: #e0e0e0;
       --accent-color: #ffd700;
+      --accent-color-dark: #000;
       --glass-bg: rgba(255, 255, 255, 0.1);
       --glass-border: rgba(255, 255, 255, 0.18);
+      --glass-hover: rgba(255, 255, 255, 0.2);
+      --shadow-color: rgba(0, 0, 0, 0.1);
+      --shadow-color-hover: rgba(0, 0, 0, 0.2);
+    }
+
+    body[data-theme="dark"] {
+      /* تم تاریک */
+      --bg-gradient: linear-gradient(-45deg, #0f172a, #1e293b, #1a1a2e, #2a2a4a);
+      --text-color: #e5e7eb;
+      --text-color-light: #9ca3af;
+      --accent-color: #fde047; /* کمی روشن‌تر برای کنتراست بهتر */
+      --accent-color-dark: #000;
+      --glass-bg: rgba(30, 41, 59, 0.4); /* شیشه تیره‌تر */
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --glass-hover: rgba(30, 41, 59, 0.7);
+      --shadow-color: rgba(0, 0, 0, 0.2);
+      --shadow-color-hover: rgba(0, 0, 0, 0.4);
     }
 
     html {
@@ -31,15 +48,25 @@
       font-family: 'Vazirmatn', sans-serif;
       margin: 0;
       padding: 0;
-      /* گرادیان پس‌زمینه متحرک و جذاب‌تر */
-      background: linear-gradient(-45deg, var(--bg-color-1), var(--bg-color-2), var(--bg-color-3), var(--bg-color-4));
+      background: var(--bg-gradient);
       background-size: 400% 400%;
-      animation: gradientBG 15s ease infinite;
       color: var(--text-color);
-      direction: rtl;
-      transition: all 0.3s ease-in-out;
-      overflow-x: hidden; /* جلوگیری از اسکرول افقی */
+      transition: background 0.5s ease, color 0.5s ease;
+      animation: gradientBG 15s ease infinite;
+      overflow-x: hidden;
     }
+    
+    /* تنظیم جهت بر اساس زبان */
+    html[lang="ar"] body,
+    html[lang="fa"] body,
+    html[lang="tr"] body { /* ترکی هم راست‌چین است */
+      direction: rtl;
+    }
+
+    html:not([lang="ar"]):not([lang="fa"]):not([lang="tr"]) body {
+      direction: ltr;
+    }
+
 
     .container {
       max-width: 900px;
@@ -49,53 +76,21 @@
 
     header {
       text-align: center;
-      padding: 2rem 1rem;
+      padding: 4rem 1rem 2rem 1rem; /* پدینگ بالا برای فاصله از منوی تنظیمات */
       animation: fadeIn 1s ease-in;
     }
 
     h1 {
       font-size: 3rem;
       margin-bottom: 0.5rem;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      text-shadow: 0 2px 10px var(--shadow-color);
     }
 
     p {
       font-size: 1.3rem;
       max-width: 700px;
       margin: 0 auto;
-      opacity: 0.9;
-    }
-
-    .lang-switcher {
-      text-align: center;
-      margin: 1rem 0;
-    }
-
-    .lang-switcher button {
-      margin: 0.3rem;
-      padding: 0.5rem 1rem;
-      border: 1px solid var(--glass-border);
-      border-radius: 8px;
-      background: var(--glass-bg);
-      color: var(--text-color);
-      cursor: pointer;
-      font-family: 'Vazirmatn', sans-serif;
-      backdrop-filter: blur(5px);
-      -webkit-backdrop-filter: blur(5px);
-      transition: all 0.3s ease;
-    }
-
-    .lang-switcher button:hover {
-      background: rgba(255, 255, 255, 0.2);
-      transform: translateY(-2px);
-    }
-
-    /* استایل دکمه فعال زبان */
-    .lang-switcher button.active {
-      background: var(--accent-color);
-      color: #000;
-      font-weight: bold;
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+      color: var(--text-color-light);
     }
 
     .features {
@@ -107,7 +102,6 @@
     }
 
     .feature {
-      /* افکت شیشه‌ای (Glassmorphism) */
       background: var(--glass-bg);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
@@ -116,33 +110,28 @@
       width: 260px;
       text-align: center;
       border: 1px solid var(--glass-border);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 4px 20px var(--shadow-color);
       transition: all 0.3s ease;
-      
-      /* انیمیشن بارگذاری */
       opacity: 0;
       transform: translateY(20px);
       animation: featureFadeIn 0.5s forwards ease-out;
     }
     
-    /* انیمیشن آبشاری برای کارت‌ها */
     .feature:nth-child(1) { animation-delay: 0.2s; }
     .feature:nth-child(2) { animation-delay: 0.4s; }
     .feature:nth-child(3) { animation-delay: 0.6s; }
     .feature:nth-child(4) { animation-delay: 0.8s; }
     .feature:nth-child(5) { animation-delay: 1.0s; }
 
-
     .feature:hover {
       transform: scale(1.05) translateY(-5px);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-      background: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 30px var(--shadow-color-hover);
+      background: var(--glass-hover);
     }
 
     .github-link {
       text-align: center;
       margin: 3rem 0;
-      /* انیمیشن تاخیردار برای دکمه گیت‌هاب */
       opacity: 0;
       animation: fadeIn 1s ease-in 1.5s forwards;
     }
@@ -153,15 +142,258 @@
       font-size: 1rem;
       background: rgba(0, 0, 0, 0.2);
       margin-top: 3rem;
+      color: var(--text-color-light);
     }
     
     footer strong {
       display: block;
       font-size: 1.5rem;
       margin-bottom: 0.5rem;
+      color: var(--text-color);
     }
 
-    /* کی‌فریم‌های انیمیشن */
+    footer a {
+      color: var(--accent-color);
+      text-decoration: none;
+      font-weight: bold;
+      transition: color 0.3s ease;
+    }
+    footer a:hover {
+      color: var(--text-color);
+    }
+
+    /* --- منوی تنظیمات گوشه صفحه --- */
+    .settings-container {
+      position: fixed;
+      top: 20px;
+      right: 20px; /* پیش‌فرض برای LTR */
+      z-index: 1000;
+    }
+    
+    /* جابجایی منو برای زبان‌های RTL */
+    html[lang="ar"] .settings-container,
+    html[lang="fa"] .settings-container,
+    html[lang="tr"] .settings-container {
+      right: auto;
+      left: 20px;
+    }
+
+    .settings-menu-toggle {
+      width: 45px;
+      height: 45px;
+      background: var(--glass-bg);
+      color: var(--text-color);
+      border: 1px solid var(--glass-border);
+      border-radius: 50%;
+      font-size: 1.5rem;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+
+    .settings-menu-toggle:hover {
+      background: var(--glass-hover);
+      transform: scale(1.1) rotate(20deg);
+    }
+
+    .settings-dropdown {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0; /* پیش‌فرض برای LTR */
+      width: 220px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      box-shadow: 0 8px 30px var(--shadow-color-hover);
+      padding: 0.75rem;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(10px);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    /* جابجایی منو برای زبان‌های RTL */
+    html[lang="ar"] .settings-dropdown,
+    html[lang="fa"] .settings-dropdown,
+    html[lang="tr"] .settings-dropdown {
+      right: auto;
+      left: 0;
+    }
+
+    .settings-dropdown.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .settings-dropdown-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    
+    .settings-dropdown-item:not(:last-child) {
+      margin-bottom: 5px;
+    }
+
+    .settings-dropdown-item:hover {
+      background: var(--glass-hover);
+    }
+    
+    .settings-dropdown-item span {
+      font-size: 0.95rem;
+    }
+
+    /* --- استایل سوییچ حالت تاریک --- */
+    .dark-mode-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+    }
+
+    .dark-mode-switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #555;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent-color);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    /* --- مدال (Modal) انتخاب زبان --- */
+    #language-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 2000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      
+      /* انیمیشن محو شدن نرم */
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease;
+    }
+    
+    #language-modal.modal-visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal-content {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 15px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 10px 40px var(--shadow-color-hover);
+      position: relative;
+
+      /* انیمیشن نرم باز شدن باکس */
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    #language-modal.modal-visible .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      font-size: 1.5rem;
+      color: var(--text-color);
+      cursor: pointer;
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+    .modal-close:hover {
+      transform: scale(1.2);
+      color: var(--accent-color);
+    }
+    
+    .modal-title {
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: 2rem;
+      font-size: 1.5rem;
+    }
+
+    .language-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .lang-button {
+      padding: 1rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      color: var(--text-color);
+      font-family: 'Vazirmatn', sans-serif;
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .lang-button:hover {
+      background: var(--accent-color);
+      color: var(--accent-color-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    }
+
+
+    /* --- کی‌فریم‌های انیمیشن --- */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-20px); }
       to { opacity: 1; transform: translateY(0); }
@@ -180,6 +412,7 @@
       100% { background-position: 0% 50%; }
     }
 
+    /* --- رسپانسیو --- */
     @media (max-width: 600px) {
       .container {
         padding: 1rem;
@@ -187,21 +420,67 @@
       h1 { font-size: 2.2rem; }
       p { font-size: 1.1rem; }
       .feature { width: 90%; }
+      .language-grid {
+        grid-template-columns: 1fr;
+      }
+      .modal-content {
+        width: 95%;
+        padding: 1.5rem;
+      }
+      .settings-container {
+        top: 15px;
+        right: 15px;
+      }
+      html[lang="ar"] .settings-container,
+      html[lang="fa"] .settings-container,
+      html[lang="tr"] .settings-container {
+        right: auto;
+        left: 15px;
+      }
     }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <div class="lang-switcher">
-      <button onclick="setLang('fa', this)">فارسی</button>
-      <button onclick="setLang('en', this)">English</button>
-      <button onclick="setLang('ar', this)">العربية</button>
-      <button onclick="setLang('ru', this)">Русский</button>
-      <button onclick="setLang('zh', this)">中文</button>
-      <button onclick="setLang('hi', this)">हिन्दी</button>
+  <div class="settings-container">
+    <button class="settings-menu-toggle" id="settings-toggle-btn" aria-label="Settings Menu">
+      ⚙️
+    </button>
+    <div class="settings-dropdown" id="settings-dropdown-menu">
+      <div class="settings-dropdown-item" id="lang-modal-open">
+        <span>🌐 تغییر زبان</span>
+        <span>&rsaquo;</span>
+      </div>
+      <div class="settings-dropdown-item">
+        <span> حالت تاریک 🌙</span>
+        <label class="dark-mode-switch">
+          <input type="checkbox" id="dark-mode-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
+  </div>
 
+  <div id="language-modal">
+    <div class="modal-content">
+      <span class="modal-close" id="modal-close-btn">&times;</span>
+      <h2 class="modal-title">زبان خود را انتخاب کنید</h2>
+      <div class="language-grid">
+        <button class="lang-button" onclick="setLang('fa')">فارسی</button>
+        <button class="lang-button" onclick="setLang('en')">English</button>
+        <button class="lang-button" onclick="setLang('ar')">العربية</button>
+        <button class="lang-button" onclick="setLang('ru')">Русский</button>
+        <button class="lang-button" onclick="setLang('zh')">中文</button>
+        <button class="lang-button" onclick="setLang('hi')">हिन्दी</button>
+        <button class="lang-button" onclick="setLang('es')">Español</button>
+        <button class="lang-button" onclick="setLang('fr')">Français</button>
+        <button class="lang-button" onclick="setLang('tr')">Türkçe</button>
+        <button class="lang-button" onclick="setLang('it')">Italiano</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
     <header>
       <h1 id="title">ParsOS NEXT</h1>
       <p id="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
@@ -227,7 +506,7 @@
 
   <footer>
     <strong>I ❤️ IRAN</strong>
-    <div>ساخته شده توسط <a href="https://github.com/amirali1390-bit" target="_blank" style="color: var(--accent-color); text-decoration: none;">amirali1390-bit</a></div>
+    <div>ساخته شده توسط <a href="https://github.com/amirali1390-bit" target="_blank">amirali1390-bit</a></div>
   </footer>
 
   <script>
@@ -248,30 +527,98 @@
         description: "Мощный симулятор мобильной ОС на Python и Pygame",
         features: ["🎮 Плавная анимация", "📱 Управление приложениями", "🔔 Центр уведомлений", "🧊 Эффекты стекла и размытия", "🌌 Эффект глубины экрана блокировки"]
       },
+      zh: {
+        description: "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
+        features: ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"]
+      },
       hi: {
         description: "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
         features: ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"]
       },
-      zh: {
-        description: "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
-        features: ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"]
+      es: { // اسپانیایی
+        description: "Un potente simulador de sistema operativo móvil creado con Python y Pygame",
+        features: ["🎮 Animaciones fluidas", "📱 Gestión de aplicaciones", "🔔 Centro de notificaciones", "🧊 Efectos de cristal y desenfoque", "🌌 Efecto de profundidad en pantalla de bloqueo"]
+      },
+      fr: { // فرانسوی
+        description: "Un puissant simulateur de système d'exploitation mobile conçu avec Python et Pygame",
+        features: ["🎮 Animations fluides", "📱 Gestion des applications", "🔔 Centre de notifications", "🧊 Effets de verre et de flou", "🌌 Effet de profondeur sur l'écran de verrouillage"]
+      },
+      tr: { // ترکی
+        description: "Python ve Pygame ile oluşturulmuş güçlü bir mobil işletim sistemi simülatörü",
+        features: ["🎮 Akıcı animasyonlar", "📱 Uygulama yönetimi", "🔔 Bildirim merkezi", "🧊 Cam ve bulanıklık efektleri", "🌌 Kilit ekranı derinlik efekti"]
+      },
+      it: { // ایتالیایی
+        description: "Un potente simulatore di sistema operativo mobile costruito con Python e Pygame",
+        features: ["🎮 Animazioni fluide", "📱 Gestione app", "🔔 Centro notifiche", "🧊 Effetti vetro e sfocatura", "🌌 Effetto profondità blocco schermo"]
       }
-      // افزودن زبان‌های دیگر در صورت نیاز
     };
 
-    function setLang(lang, element) {
-      // به‌روزرسانی کلاس active برای دکمه‌های زبان
-      document.querySelectorAll('.lang-switcher button').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      if (element) {
-        element.classList.add('active');
-      }
+    // --- مدیریت منوی تنظیمات ---
+    const settingsToggle = document.getElementById('settings-toggle-btn');
+    const settingsDropdown = document.getElementById('settings-dropdown-menu');
 
-      // ترجمه متن‌ها
+    settingsToggle.addEventListener('click', (e) => {
+      e.stopPropagation(); // جلوگیری از بسته شدن فوری توسط window
+      settingsDropdown.classList.toggle('active');
+    });
+
+    // بستن منو با کلیک بیرون از آن
+    window.addEventListener('click', (e) => {
+      if (!settingsDropdown.contains(e.target) && !settingsToggle.contains(e.target)) {
+        settingsDropdown.classList.remove('active');
+      }
+    });
+
+    // --- مدیریت حالت تاریک ---
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+
+    // اعمال تم ذخیره شده در localStorage هنگام بارگذاری
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      document.body.setAttribute('data-theme', savedTheme);
+      darkModeToggle.checked = savedTheme === 'dark';
+    });
+
+    darkModeToggle.addEventListener('change', () => {
+      if (darkModeToggle.checked) {
+        document.body.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.body.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+      }
+    });
+
+    // --- مدیریت مدال زبان ---
+    const languageModal = document.getElementById('language-modal');
+    const openModalBtn = document.getElementById('lang-modal-open');
+    const closeModalBtn = document.getElementById('modal-close-btn');
+
+    openModalBtn.addEventListener('click', () => {
+      languageModal.classList.add('modal-visible');
+      settingsDropdown.classList.remove('active'); // بستن منوی تنظیمات
+    });
+
+    closeModalBtn.addEventListener('click', () => {
+      languageModal.classList.remove('modal-visible');
+    });
+
+    // بستن مدال با کلیک روی پس‌زمینه
+    languageModal.addEventListener('click', (e) => {
+      if (e.target === languageModal) {
+        languageModal.classList.remove('modal-visible');
+      }
+    });
+
+    // --- تابع تغییر زبان ---
+    function setLang(lang) {
+      // 1. تغییر زبان سند (برای اعمال CSS direction)
+      document.documentElement.lang = lang;
+
+      // 2. ترجمه متن‌ها
       document.getElementById("description").innerText = translations[lang].description;
       
-      // بازسازی کارت‌های ویژگی‌ها (که باعث اجرای مجدد انیمیشن می‌شود)
+      // 3. بازسازی کارت‌های ویژگی‌ها (برای اجرای مجدد انیمیشن)
       const features = document.getElementById("features");
       features.innerHTML = ""; // خالی کردن کارت‌های قبلی
       
@@ -282,17 +629,9 @@
         features.appendChild(div);
       });
 
-      // تنظیم جهت صفحه (راست‌چین یا چپ‌چین)
-      document.body.dir = lang === "ar" || lang === "fa" ? "rtl" : "ltr";
+      // 4. بستن مدال
+      languageModal.classList.remove('modal-visible');
     }
-
-    // تنظیم زبان پیش‌فرض و دکمه فعال هنگام بارگذاری صفحه
-    document.addEventListener('DOMContentLoaded', () => {
-      const defaultButton = document.querySelector('.lang-switcher button[onclick="setLang(\'fa\', this)"]');
-      if (defaultButton) {
-        defaultButton.classList.add('active');
-      }
-    });
   </script>
 </body>
 </html>
