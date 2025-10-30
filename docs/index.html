@@ -5,123 +5,229 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ParsOS NEXT</title>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn&display=swap" rel="stylesheet" />
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
   <style>
+    :root {
+      --bg-color-1: #1e3c72;
+      --bg-color-2: #2a5298;
+      --bg-color-3: #2e1e72;
+      --bg-color-4: #522a98;
+      --text-color: #ffffff;
+      --accent-color: #ffd700;
+      --glass-bg: rgba(255, 255, 255, 0.1);
+      --glass-border: rgba(255, 255, 255, 0.18);
+    }
+
+    html {
+      box-sizing: border-box;
+      scroll-behavior: smooth;
+    }
+
+    *, *::before, *::after {
+      box-sizing: inherit;
+    }
+
     body {
       font-family: 'Vazirmatn', sans-serif;
       margin: 0;
       padding: 0;
-      background: linear-gradient(to right, #1e3c72, #2a5298);
-      color: #fff;
+      /* گرادیان پس‌زمینه متحرک و جذاب‌تر */
+      background: linear-gradient(-45deg, var(--bg-color-1), var(--bg-color-2), var(--bg-color-3), var(--bg-color-4));
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: var(--text-color);
       direction: rtl;
       transition: all 0.3s ease-in-out;
+      overflow-x: hidden; /* جلوگیری از اسکرول افقی */
     }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+    }
+
     header {
       text-align: center;
       padding: 2rem 1rem;
       animation: fadeIn 1s ease-in;
     }
+
     h1 {
-      font-size: 2.5rem;
+      font-size: 3rem;
       margin-bottom: 0.5rem;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
+
     p {
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       max-width: 700px;
       margin: 0 auto;
+      opacity: 0.9;
     }
+
+    .lang-switcher {
+      text-align: center;
+      margin: 1rem 0;
+    }
+
+    .lang-switcher button {
+      margin: 0.3rem;
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      background: var(--glass-bg);
+      color: var(--text-color);
+      cursor: pointer;
+      font-family: 'Vazirmatn', sans-serif;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      transition: all 0.3s ease;
+    }
+
+    .lang-switcher button:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    /* استایل دکمه فعال زبان */
+    .lang-switcher button.active {
+      background: var(--accent-color);
+      color: #000;
+      font-weight: bold;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    }
+
     .features {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      margin: 2rem 0;
-      gap: 1rem;
+      margin: 3rem 0;
+      gap: 1.5rem;
     }
+
     .feature {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 1rem;
-      width: 250px;
+      /* افکت شیشه‌ای (Glassmorphism) */
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 1.5rem;
+      width: 260px;
       text-align: center;
-      transition: transform 0.3s ease;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+      
+      /* انیمیشن بارگذاری */
+      opacity: 0;
+      transform: translateY(20px);
+      animation: featureFadeIn 0.5s forwards ease-out;
     }
+    
+    /* انیمیشن آبشاری برای کارت‌ها */
+    .feature:nth-child(1) { animation-delay: 0.2s; }
+    .feature:nth-child(2) { animation-delay: 0.4s; }
+    .feature:nth-child(3) { animation-delay: 0.6s; }
+    .feature:nth-child(4) { animation-delay: 0.8s; }
+    .feature:nth-child(5) { animation-delay: 1.0s; }
+
+
     .feature:hover {
-      transform: scale(1.05);
+      transform: scale(1.05) translateY(-5px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+      background: rgba(255, 255, 255, 0.15);
     }
-    .lang-switcher {
-      text-align: center;
-      margin: 1rem;
-    }
-    .lang-switcher button {
-      margin: 0.3rem;
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 5px;
-      background: #ffd700;
-      color: #000;
-      cursor: pointer;
-    }
+
     .github-link {
       text-align: center;
-      margin: 2rem 0;
+      margin: 3rem 0;
+      /* انیمیشن تاخیردار برای دکمه گیت‌هاب */
+      opacity: 0;
+      animation: fadeIn 1s ease-in 1.5s forwards;
     }
-    .github-link a {
-      background: #fff;
-      color: #2a5298;
-      padding: 0.7rem 1.5rem;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: bold;
-      transition: background 0.3s ease;
-    }
-    .github-link a:hover {
-      background: #ffd700;
-      color: #000;
-    }
+
     footer {
       text-align: center;
       padding: 2rem 1rem;
-      font-size: 1.5rem;
+      font-size: 1rem;
       background: rgba(0, 0, 0, 0.2);
+      margin-top: 3rem;
     }
+    
+    footer strong {
+      display: block;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* کی‌فریم‌های انیمیشن */
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-20px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    
+    @keyframes featureFadeIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
     @media (max-width: 600px) {
-      h1 { font-size: 2rem; }
+      .container {
+        padding: 1rem;
+      }
+      h1 { font-size: 2.2rem; }
+      p { font-size: 1.1rem; }
       .feature { width: 90%; }
     }
   </style>
 </head>
 <body>
-  <div class="lang-switcher">
-    <button onclick="setLang('fa')">فارسی</button>
-    <button onclick="setLang('en')">English</button>
-    <button onclick="setLang('ar')">العربية</button>
-    <button onclick="setLang('ru')">Русский</button>
-    <button onclick="setLang('zh')">中文</button>
-    <button onclick="setLang('hi')">हिन्दी</button>
-  </div>
 
-  <header>
-    <h1 id="title">ParsOS NEXT</h1>
-    <p id="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
-  </header>
+  <div class="container">
+    <div class="lang-switcher">
+      <button onclick="setLang('fa', this)">فارسی</button>
+      <button onclick="setLang('en', this)">English</button>
+      <button onclick="setLang('ar', this)">العربية</button>
+      <button onclick="setLang('ru', this)">Русский</button>
+      <button onclick="setLang('zh', this)">中文</button>
+      <button onclick="setLang('hi', this)">हिन्दी</button>
+    </div>
 
-  <section class="features" id="features">
-    <div class="feature">🎮 انیمیشن‌های روان</div>
-    <div class="feature">📱 مدیریت برنامه‌ها</div>
-    <div class="feature">🔔 مرکز اعلان‌ها</div>
-    <div class="feature">🧊 افکت‌های شیشه‌ای و بلور</div>
-    <div class="feature">🌌 جلوه عمق برای صفحه قفل</div>
-  </section>
+    <header>
+      <h1 id="title">ParsOS NEXT</h1>
+      <p id="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
+    </header>
 
-  <div class="github-link">
-    <a href="https://github.com/amirali1390-bit/ParsOS-NEXT" target="_blank">مشاهده پروژه در GitHub</a>
+    <section class="features" id="features">
+      <div class="feature">🎮 انیمیشن‌های روان</div>
+      <div class="feature">📱 مدیریت برنامه‌ها</div>
+      <div class="feature">🔔 مرکز اعلان‌ها</div>
+      <div class="feature">🧊 افکت‌های شیشه‌ای و بلور</div>
+      <div class="feature">🌌 جلوه عمق برای صفحه قفل</div>
+    </section>
+
+    <div class="github-link">
+      <a class="github-button" 
+         href="https://github.com/amirali1390-bit/ParsOS-NEXT" 
+         data-icon="octicon-star" 
+         data-size="large" 
+         data-show-count="true" 
+         aria-label="Star amirali1390-bit/ParsOS-NEXT on GitHub">Star</a>
+    </div>
   </div>
 
   <footer>
     <strong>I ❤️ IRAN</strong>
+    <div>ساخته شده توسط <a href="https://github.com/amirali1390-bit" target="_blank" style="color: var(--accent-color); text-decoration: none;">amirali1390-bit</a></div>
   </footer>
 
   <script>
@@ -142,28 +248,51 @@
         description: "Мощный симулятор мобильной ОС на Python и Pygame",
         features: ["🎮 Плавная анимация", "📱 Управление приложениями", "🔔 Центр уведомлений", "🧊 Эффекты стекла и размытия", "🌌 Эффект глубины экрана блокировки"]
       },
-      zh: {
-        description: "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
-        features: ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"]
-      },
       hi: {
         description: "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
         features: ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"]
+      },
+      zh: {
+        description: "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
+        features: ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"]
       }
+      // افزودن زبان‌های دیگر در صورت نیاز
     };
 
-    function setLang(lang) {
+    function setLang(lang, element) {
+      // به‌روزرسانی کلاس active برای دکمه‌های زبان
+      document.querySelectorAll('.lang-switcher button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      if (element) {
+        element.classList.add('active');
+      }
+
+      // ترجمه متن‌ها
       document.getElementById("description").innerText = translations[lang].description;
+      
+      // بازسازی کارت‌های ویژگی‌ها (که باعث اجرای مجدد انیمیشن می‌شود)
       const features = document.getElementById("features");
-      features.innerHTML = "";
+      features.innerHTML = ""; // خالی کردن کارت‌های قبلی
+      
       translations[lang].features.forEach(f => {
         const div = document.createElement("div");
         div.className = "feature";
         div.innerText = f;
         features.appendChild(div);
       });
+
+      // تنظیم جهت صفحه (راست‌چین یا چپ‌چین)
       document.body.dir = lang === "ar" || lang === "fa" ? "rtl" : "ltr";
     }
+
+    // تنظیم زبان پیش‌فرض و دکمه فعال هنگام بارگذاری صفحه
+    document.addEventListener('DOMContentLoaded', () => {
+      const defaultButton = document.querySelector('.lang-switcher button[onclick="setLang(\'fa\', this)"]');
+      if (defaultButton) {
+        defaultButton.classList.add('active');
+      }
+    });
   </script>
 </body>
 </html>
