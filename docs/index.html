@@ -9,7 +9,7 @@
   <script async defer src="https://buttons.github.io/buttons.js"></script>
   <style>
     :root {
-      /* تم روشن (پیش‌فرض) - همان گرادیان آبی قبلی */
+      /* تم روشن (پیش‌فرض) */
       --bg-gradient: linear-gradient(-45deg, #1e3c72, #2a5298, #2e1e72, #522a98);
       --text-color: #ffffff;
       --text-color-light: #e0e0e0;
@@ -20,6 +20,12 @@
       --glass-hover: rgba(255, 255, 255, 0.2);
       --shadow-color: rgba(0, 0, 0, 0.1);
       --shadow-color-hover: rgba(0, 0, 0, 0.2);
+      --btn-primary-bg: var(--accent-color);
+      --btn-primary-text: var(--accent-color-dark);
+      --btn-primary-hover: #ffec80;
+      --btn-secondary-bg: var(--glass-bg);
+      --btn-secondary-text: var(--text-color);
+      --btn-secondary-hover: var(--glass-hover);
     }
 
     body[data-theme="dark"] {
@@ -34,6 +40,12 @@
       --glass-hover: rgba(30, 41, 59, 0.7);
       --shadow-color: rgba(0, 0, 0, 0.2);
       --shadow-color-hover: rgba(0, 0, 0, 0.4);
+      --btn-primary-bg: var(--accent-color);
+      --btn-primary-text: var(--accent-color-dark);
+      --btn-primary-hover: #fff3a0;
+      --btn-secondary-bg: var(--glass-bg);
+      --btn-secondary-text: var(--text-color);
+      --btn-secondary-hover: var(--glass-hover);
     }
 
     html {
@@ -60,7 +72,7 @@
     /* تنظیم جهت بر اساس زبان */
     html[lang="ar"] body,
     html[lang="fa"] body,
-    html[lang="tr"] body { /* ترکی هم راست‌چین است */
+    html[lang="tr"] body {
       direction: rtl;
     }
 
@@ -77,7 +89,7 @@
 
     header {
       text-align: center;
-      padding: 4rem 1rem 2rem 1rem; /* پدینگ بالا برای فاصله از منوی تنظیمات */
+      padding: 4rem 1rem 2rem 1rem;
       animation: fadeIn 1s ease-in;
     }
 
@@ -85,6 +97,8 @@
       font-size: 3rem;
       margin-bottom: 0.5rem;
       text-shadow: 0 2px 10px var(--shadow-color);
+      opacity: 0;
+      animation: fadeInUp 0.8s 0.2s forwards ease-out;
     }
 
     p {
@@ -92,6 +106,8 @@
       max-width: 700px;
       margin: 0 auto;
       color: var(--text-color-light);
+      opacity: 0;
+      animation: fadeInUp 0.8s 0.4s forwards ease-out;
     }
 
     .features {
@@ -118,11 +134,11 @@
       animation: featureFadeIn 0.5s forwards ease-out;
     }
     
-    .feature:nth-child(1) { animation-delay: 0.2s; }
-    .feature:nth-child(2) { animation-delay: 0.4s; }
-    .feature:nth-child(3) { animation-delay: 0.6s; }
-    .feature:nth-child(4) { animation-delay: 0.8s; }
-    .feature:nth-child(5) { animation-delay: 1.0s; }
+    .feature:nth-child(1) { animation-delay: 0.6s; }
+    .feature:nth-child(2) { animation-delay: 0.8s; }
+    .feature:nth-child(3) { animation-delay: 1.0s; }
+    .feature:nth-child(4) { animation-delay: 1.2s; }
+    .feature:nth-child(5) { animation-delay: 1.4s; }
 
     .feature:hover {
       transform: scale(1.05) translateY(-5px);
@@ -132,10 +148,57 @@
 
     .github-link {
       text-align: center;
-      margin: 3rem 0;
+      margin: 2rem 0; /* کاهش فاصله برای دکمه‌های جدید */
       opacity: 0;
-      animation: fadeIn 1s ease-in 1.5s forwards;
+      animation: fadeIn 1s ease-in 1.8s forwards;
     }
+
+    /* --- دکمه‌های دانلود و مشاهده --- */
+    .action-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin: 1.5rem 0 3rem 0;
+      opacity: 0;
+      animation: fadeInUp 1s ease-out 1.6s forwards;
+    }
+    
+    .action-button {
+      font-family: 'Vazirmatn', sans-serif;
+      font-size: 1.1rem;
+      font-weight: bold;
+      padding: 0.8rem 1.8rem;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+      box-shadow: 0 4px 15px var(--shadow-color);
+      cursor: pointer;
+    }
+    
+    .action-button.primary {
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
+    }
+    .action-button.primary:hover {
+      background: var(--btn-primary-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+    }
+    
+    .action-button.secondary {
+      background: var(--btn-secondary-bg);
+      color: var(--btn-secondary-text);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(5px);
+    }
+    .action-button.secondary:hover {
+      background: var(--btn-secondary-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px var(--shadow-color-hover);
+    }
+
 
     footer {
       text-align: center;
@@ -396,7 +459,12 @@
 
     /* --- کی‌فریم‌های انیمیشن --- */
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
     
@@ -438,6 +506,16 @@
         right: auto;
         left: 15px;
       }
+      .action-buttons {
+        gap: 0.75rem;
+      }
+      .action-button {
+        font-size: 1rem;
+        padding: 0.7rem 1.5rem;
+        width: 100%; /* دکمه‌ها در موبایل تمام عرض شوند */
+        box-sizing: border-box; /* برای پدینگ صحیح */
+        text-align: center;
+      }
     }
   </style>
 </head>
@@ -449,11 +527,11 @@
     </button>
     <div class="settings-dropdown" id="settings-dropdown-menu">
       <div class="settings-dropdown-item" id="lang-modal-open">
-        <span>🌐 تغییر زبان</span>
+        <span data-key="lang-menu">🌐 تغییر زبان</span>
         <span>&rsaquo;</span>
       </div>
       <div class="settings-dropdown-item">
-        <span> حالت تاریک 🌙</span>
+        <span data-key="dark-mode"> حالت تاریک 🌙</span>
         <label class="dark-mode-switch">
           <input type="checkbox" id="dark-mode-toggle">
           <span class="slider"></span>
@@ -465,7 +543,7 @@
   <div id="language-modal">
     <div class="modal-content">
       <span class="modal-close" id="modal-close-btn">&times;</span>
-      <h2 class="modal-title">زبان خود را انتخاب کنید</h2>
+      <h2 class="modal-title" data-key="modal-title">زبان خود را انتخاب کنید</h2>
       <div class="language-grid">
         <button class="lang-button" onclick="setLang('fa')">فارسی</button>
         <button class="lang-button" onclick="setLang('en')">English</button>
@@ -484,16 +562,11 @@
   <div class="container">
     <header>
       <h1 id="title">ParsOS NEXT</h1>
-      <p id="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
+      <p id="description" data-key="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
     </header>
 
     <section class="features" id="features">
-      <div class="feature">🎮 انیمیشن‌های روان</div>
-      <div class="feature">📱 مدیریت برنامه‌ها</div>
-      <div class="feature">🔔 مرکز اعلان‌ها</div>
-      <div class="feature">🧊 افکت‌های شیشه‌ای و بلور</div>
-      <div class="feature">🌌 جلوه عمق برای صفحه قفل</div>
-    </section>
+      </section>
 
     <div class="github-link">
       <a class="github-button" 
@@ -503,67 +576,147 @@
          data-show-count="true" 
          aria-label="Star amirali1390-bit/ParsOS-NEXT on GitHub">Star</a>
     </div>
+
+    <div class="action-buttons">
+      <a href="https://github.com/amirali1390-bit/ParsOS-NEXT/archive/refs/heads/main.zip" 
+         class="action-button primary" 
+         data-key="btn-download">
+         دانلود مستقیم
+      </a>
+      <a href="https://github.com/amirali1390-bit/ParsOS-NEXT" 
+         target="_blank" 
+         class="action-button secondary"
+         data-key="btn-view">
+         مشاهده پروژه
+      </a>
+    </div>
+
   </div>
 
   <footer>
     <strong>I ❤️ IRAN</strong>
-    <div>ساخته شده توسط <a href="https://github.com/amirali1390-bit" target="_blank">amirali1390-bit</a></div>
+    <div data-key="footer-made-by">ساخته شده توسط <a href="https://github.com/amirali1390-bit" target="_blank">amirali1390-bit</a></div>
   </footer>
 
   <script>
+    // آبجکت ترجمه‌ها گسترش یافته است
     const translations = {
       en: {
-        description: "A powerful mobile OS simulator built with Python and Pygame",
-        features: ["🎮 Smooth animations", "📱 App management", "🔔 Notification center", "🧊 Glass & blur effects", "🌌 Lock screen depth effect"]
+        "description": "A powerful mobile OS simulator built with Python and Pygame",
+        "features": ["🎮 Smooth animations", "📱 App management", "🔔 Notification center", "🧊 Glass & blur effects", "🌌 Lock screen depth effect"],
+        "lang-menu": "🌐 Change Language",
+        "dark-mode": "Dark Mode 🌙",
+        "modal-title": "Choose Your Language",
+        "btn-download": "Direct Download",
+        "btn-view": "View Project",
+        "footer-made-by": "Made by"
       },
       fa: {
-        description: "شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame",
-        features: ["🎮 انیمیشن‌های روان", "📱 مدیریت برنامه‌ها", "🔔 مرکز اعلان‌ها", "🧊 افکت‌های شیشه‌ای و بلور", "🌌 جلوه عمق برای صفحه قفل"]
+        "description": "شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame",
+        "features": ["🎮 انیمیشن‌های روان", "📱 مدیریت برنامه‌ها", "🔔 مرکز اعلان‌ها", "🧊 افکت‌های شیشه‌ای و بلور", "🌌 جلوه عمق برای صفحه قفل"],
+        "lang-menu": "🌐 تغییر زبان",
+        "dark-mode": " حالت تاریک 🌙",
+        "modal-title": "زبان خود را انتخاب کنید",
+        "btn-download": "دانلود مستقیم",
+        "btn-view": "مشاهده پروژه",
+        "footer-made-by": "ساخته شده توسط"
       },
       ar: {
-        description: "محاكي نظام تشغيل الهاتف المحمول باستخدام Python و Pygame",
-        features: ["🎮 رسوم متحركة سلسة", "📱 إدارة التطبيقات", "🔔 مركز الإشعارات", "🧊 تأثيرات زجاجية وضبابية", "🌌 تأثير العمق لشاشة القفل"]
+        "description": "محاكي نظام تشغيل الهاتف المحمول باستخدام Python و Pygame",
+        "features": ["🎮 رسوم متحركة سلسة", "📱 إدارة التطبيقات", "🔔 مركز الإشعارات", "🧊 تأثيرات زجاجية وضبابية", "🌌 تأثير العمق لشاشة القفل"],
+        "lang-menu": "🌐 تغيير اللغة",
+        "dark-mode": "الوضع الداكن 🌙",
+        "modal-title": "اختر لغتك",
+        "btn-download": "تحميل مباشر",
+        "btn-view": "عرض المشروع",
+        "footer-made-by": "صنع بواسطة"
       },
       ru: {
-        description: "Мощный симулятор мобильной ОС на Python и Pygame",
-        features: ["🎮 Плавная анимация", "📱 Управление приложениями", "🔔 Центр уведомлений", "🧊 Эффекты стекла и размытия", "🌌 Эффект глубины экрана блокировки"]
+        "description": "Мощный симулятор мобильной ОС на Python и Pygame",
+        "features": ["🎮 Плавная анимация", "📱 Управление приложениями", "🔔 Центр уведомлений", "🧊 Эффекты стекла и размытия", "🌌 Эффект глубины экрана блокировки"],
+        "lang-menu": "🌐 Изменить язык",
+        "dark-mode": "Темный режим 🌙",
+        "modal-title": "Выберите ваш язык",
+        "btn-download": "Прямая загрузка",
+        "btn-view": "Посмотреть проект",
+        "footer-made-by": "Сделано"
       },
       zh: {
-        description: "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
-        features: ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"]
+        "description": "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
+        "features": ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"],
+        "lang-menu": "🌐 改变语言",
+        "dark-mode": "黑暗模式 🌙",
+        "modal-title": "选择你的语言",
+        "btn-download": "直接下载",
+        "btn-view": "查看项目",
+        "footer-made-by": "由...制作"
       },
       hi: {
-        description: "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
-        features: ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"]
+        "description": "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
+        "features": ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"],
+        "lang-menu": "🌐 भाषा बदलें",
+        "dark-mode": "डार्क मोड 🌙",
+        "modal-title": "अपनी भाषा चुनें",
+        "btn-download": "सीधा डाउनलोड",
+        "btn-view": "परियोजना देखें",
+        "footer-made-by": "द्वारा बनाया गया"
       },
-      es: { // اسپانیایی
-        description: "Un potente simulador de sistema operativo móvil creado con Python y Pygame",
-        features: ["🎮 Animaciones fluidas", "📱 Gestión de aplicaciones", "🔔 Centro de notificaciones", "🧊 Efectos de cristal y desenfoque", "🌌 Efecto de profundidad en pantalla de bloqueo"]
+      es: {
+        "description": "Un potente simulador de sistema operativo móvil creado con Python y Pygame",
+        "features": ["🎮 Animaciones fluidas", "📱 Gestión de aplicaciones", "🔔 Centro de notificaciones", "🧊 Efectos de cristal y desenfoque", "🌌 Efecto de profundidad en pantalla de bloqueo"],
+        "lang-menu": "🌐 Cambiar idioma",
+        "dark-mode": "Modo oscuro 🌙",
+        "modal-title": "Elige tu idioma",
+        "btn-download": "Descarga directa",
+        "btn-view": "Ver proyecto",
+        "footer-made-by": "Hecho por"
       },
-      fr: { // فرانسوی
-        description: "Un puissant simulateur de système d'exploitation mobile conçu avec Python et Pygame",
-        features: ["🎮 Animations fluides", "📱 Gestion des applications", "🔔 Centre de notifications", "🧊 Effets de verre et de flou", "🌌 Effet de profondeur sur l'écran de verrouillage"]
+      fr: {
+        "description": "Un puissant simulateur de système d'exploitation mobile conçu avec Python et Pygame",
+        "features": ["🎮 Animations fluides", "📱 Gestion des applications", "🔔 Centre de notifications", "🧊 Effets de verre et de flou", "🌌 Effet de profondeur sur l'écran de verrouillage"],
+        "lang-menu": "🌐 Changer de langue",
+        "dark-mode": "Mode sombre 🌙",
+        "modal-title": "Choisissez votre langue",
+        "btn-download": "Téléchargement direct",
+        "btn-view": "Voir le projet",
+        "footer-made-by": "Fait par"
       },
-      tr: { // ترکی
-        description: "Python ve Pygame ile oluşturulmuş güçlü bir mobil işletim sistemi simülatörü",
-        features: ["🎮 Akıcı animasyonlar", "📱 Uygulama yönetimi", "🔔 Bildirim merkezi", "🧊 Cam ve bulanıklık efektleri", "🌌 Kilit ekranı derinlik efekti"]
+      tr: {
+        "description": "Python ve Pygame ile oluşturulmuş güçlü bir mobil işletim sistemi simülatörü",
+        "features": ["🎮 Akıcı animasyonlar", "📱 Uygulama yönetimi", "🔔 Bildirim merkezi", "🧊 Cam ve bulanıklık efektleri", "🌌 Kilit ekranı derinlik efekti"],
+        "lang-menu": "🌐 Dili değiştir",
+        "dark-mode": "Karanlık Mod 🌙",
+        "modal-title": "Dilinizi seçin",
+        "btn-download": "Doğrudan İndir",
+        "btn-view": "Projeyi Görüntüle",
+        "footer-made-by": "Yapan"
       },
-      it: { // ایتالیایی
-        description: "Un potente simulatore di sistema operativo mobile costruito con Python e Pygame",
-        features: ["🎮 Animazioni fluide", "📱 Gestione app", "🔔 Centro notifiche", "🧊 Effetti vetro e sfocatura", "🌌 Effetto profondità blocco schermo"]
+      it: {
+        "description": "Un potente simulatore di sistema operativo mobile costruito con Python e Pygame",
+        "features": ["🎮 Animazioni fluide", "📱 Gestione app", "🔔 Centro notifiche", "🧊 Effetti vetro e sfocatura", "🌌 Effetto profondità blocco schermo"],
+        "lang-menu": "🌐 Cambia lingua",
+        "dark-mode": "Modalità scura 🌙",
+        "modal-title": "Scegli la tua lingua",
+        "btn-download": "Download diretto",
+        "btn-view": "Vedi progetto",
+        "footer-made-by": "Creato da"
       }
     };
-
-    // --- مدیریت منوی تنظیمات ---
+    
+    // --- عناصر DOM ---
     const settingsToggle = document.getElementById('settings-toggle-btn');
     const settingsDropdown = document.getElementById('settings-dropdown-menu');
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const languageModal = document.getElementById('language-modal');
+    const openModalBtn = document.getElementById('lang-modal-open');
+    const closeModalBtn = document.getElementById('modal-close-btn');
 
+    // --- مدیریت منوی تنظیمات ---
     settingsToggle.addEventListener('click', (e) => {
-      e.stopPropagation(); // جلوگیری از بسته شدن فوری توسط window
+      e.stopPropagation(); 
       settingsDropdown.classList.toggle('active');
     });
 
-    // بستن منو با کلیک بیرون از آن
     window.addEventListener('click', (e) => {
       if (!settingsDropdown.contains(e.target) && !settingsToggle.contains(e.target)) {
         settingsDropdown.classList.remove('active');
@@ -571,30 +724,18 @@
     });
 
     // --- مدیریت حالت تاریک ---
-    const darkModeToggle = document.getElementById('dark-mode-toggle');
-
-    // اعمال تم ذخیره شده در localStorage هنگام بارگذاری
-    document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme') || 'light';
-      document.body.setAttribute('data-theme', savedTheme);
-      darkModeToggle.checked = savedTheme === 'dark';
-    });
+    function setDarkMode(isDark) {
+      const theme = isDark ? 'dark' : 'light';
+      document.body.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+      darkModeToggle.checked = isDark;
+    }
 
     darkModeToggle.addEventListener('change', () => {
-      if (darkModeToggle.checked) {
-        document.body.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        document.body.setAttribute('data-theme', 'light');
-        localStorage.setItem('theme', 'light');
-      }
+      setDarkMode(darkModeToggle.checked);
     });
 
     // --- مدیریت مدال زبان ---
-    const languageModal = document.getElementById('language-modal');
-    const openModalBtn = document.getElementById('lang-modal-open');
-    const closeModalBtn = document.getElementById('modal-close-btn');
-
     openModalBtn.addEventListener('click', () => {
       languageModal.classList.add('modal-visible');
       settingsDropdown.classList.remove('active'); // بستن منوی تنظیمات
@@ -604,20 +745,34 @@
       languageModal.classList.remove('modal-visible');
     });
 
-    // بستن مدال با کلیک روی پس‌زمینه
     languageModal.addEventListener('click', (e) => {
       if (e.target === languageModal) {
         languageModal.classList.remove('modal-visible');
       }
     });
 
-    // --- تابع تغییر زبان ---
+    // --- تابع تغییر زبان (بهبود یافته) ---
     function setLang(lang) {
+      if (!translations[lang]) {
+        console.warn(`Language "${lang}" not found. Defaulting to 'fa'.`);
+        lang = 'fa';
+      }
+
       // 1. تغییر زبان سند (برای اعمال CSS direction)
       document.documentElement.lang = lang;
 
-      // 2. ترجمه متن‌ها
-      document.getElementById("description").innerText = translations[lang].description;
+      // 2. ترجمه تمام عناصر دارای data-key
+      document.querySelectorAll('[data-key]').forEach(elem => {
+        const key = elem.dataset.key;
+        if (translations[lang][key]) {
+          // اگر عنصر فوتر است، باید لینک را حفظ کنیم
+          if (key === 'footer-made-by') {
+            elem.innerHTML = `${translations[lang][key]} <a href="https://github.com/amirali1390-bit" target="_blank">amirali1390-bit</a>`;
+          } else {
+            elem.innerText = translations[lang][key];
+          }
+        }
+      });
       
       // 3. بازسازی کارت‌های ویژگی‌ها (برای اجرای مجدد انیمیشن)
       const features = document.getElementById("features");
@@ -630,9 +785,42 @@
         features.appendChild(div);
       });
 
-      // 4. بستن مدال
+      // 4. ذخیره زبان انتخابی
+      localStorage.setItem('language', lang);
+      
+      // 5. بستن مدال (اگر باز بود)
       languageModal.classList.remove('modal-visible');
     }
+    
+    // --- بارگذاری اولیه صفحه ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. اعمال تم ذخیره شده
+      const savedTheme = localStorage.getItem('theme');
+      // بررسی تم پیش‌فرض سیستم کاربر اگر تمی ذخیره نشده بود
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      if (savedTheme) {
+        setDarkMode(savedTheme === 'dark');
+      } else {
+        setDarkMode(prefersDark); // اعمال تم بر اساس تنظیمات سیستم
+      }
+
+      // 2. اعمال زبان ذخیره شده یا تشخیص خودکار
+      const savedLang = localStorage.getItem('language');
+      const userLang = navigator.language.split('-')[0]; // 'fa-IR' -> 'fa'
+      const defaultLang = 'fa';
+      
+      let langToSet = defaultLang;
+      
+      if (savedLang) {
+        langToSet = savedLang; // اولویت با زبان ذخیره شده کاربر
+      } else if (translations[userLang]) {
+        langToSet = userLang; // اگر زبان مرورگر پشتیبانی می‌شود
+      }
+      
+      setLang(langToSet); // اعمال زبان
+    });
+
   </script>
 </body>
 </html>
