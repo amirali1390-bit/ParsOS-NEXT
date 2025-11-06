@@ -13,7 +13,7 @@ This project features smooth animations, app management, a control center, notif
 
 ### Prerequisites
 
-ُُTo run this project you need python3 and this libraries:
+To run this project you need python3 and this libraries:
 
 ```bash
 pip install pygame
@@ -24,3 +24,6 @@ pip install beautifulsoup4
 pip install mutagen
 pip install rembg
 pip install Pillow
+```
+#### Also see here!:
+https://aparat.com/v/chs00u7
