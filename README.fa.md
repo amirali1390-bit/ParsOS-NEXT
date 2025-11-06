@@ -24,3 +24,6 @@ pip install beautifulsoup4
 pip install mutagen
 pip install rembg
 pip install Pillow
+```
+### همچنین از اینجا بازدید کنید:
+https://aparat.com/v/chs00u7
