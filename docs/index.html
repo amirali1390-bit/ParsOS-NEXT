@@ -1,169 +1,826 @@
 <!DOCTYPE html>
 <html lang="fa">
 <head>
+  <meta name="google-site-verification" content="Ks4LIrXY7FqLMD_cs2ptrxIW5lCCrebOZuqLzAfZ3xE" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ParsOS NEXT</title>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn&display=swap" rel="stylesheet" />
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
   <style>
+    :root {
+      /* تم روشن (پیش‌فرض) */
+      --bg-gradient: linear-gradient(-45deg, #1e3c72, #2a5298, #2e1e72, #522a98);
+      --text-color: #ffffff;
+      --text-color-light: #e0e0e0;
+      --accent-color: #ffd700;
+      --accent-color-dark: #000;
+      --glass-bg: rgba(255, 255, 255, 0.1);
+      --glass-border: rgba(255, 255, 255, 0.18);
+      --glass-hover: rgba(255, 255, 255, 0.2);
+      --shadow-color: rgba(0, 0, 0, 0.1);
+      --shadow-color-hover: rgba(0, 0, 0, 0.2);
+      --btn-primary-bg: var(--accent-color);
+      --btn-primary-text: var(--accent-color-dark);
+      --btn-primary-hover: #ffec80;
+      --btn-secondary-bg: var(--glass-bg);
+      --btn-secondary-text: var(--text-color);
+      --btn-secondary-hover: var(--glass-hover);
+    }
+
+    body[data-theme="dark"] {
+      /* تم تاریک */
+      --bg-gradient: linear-gradient(-45deg, #0f172a, #1e293b, #1a1a2e, #2a2a4a);
+      --text-color: #e5e7eb;
+      --text-color-light: #9ca3af;
+      --accent-color: #fde047; /* کمی روشن‌تر برای کنتراست بهتر */
+      --accent-color-dark: #000;
+      --glass-bg: rgba(30, 41, 59, 0.4); /* شیشه تیره‌تر */
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --glass-hover: rgba(30, 41, 59, 0.7);
+      --shadow-color: rgba(0, 0, 0, 0.2);
+      --shadow-color-hover: rgba(0, 0, 0, 0.4);
+      --btn-primary-bg: var(--accent-color);
+      --btn-primary-text: var(--accent-color-dark);
+      --btn-primary-hover: #fff3a0;
+      --btn-secondary-bg: var(--glass-bg);
+      --btn-secondary-text: var(--text-color);
+      --btn-secondary-hover: var(--glass-hover);
+    }
+
+    html {
+      box-sizing: border-box;
+      scroll-behavior: smooth;
+    }
+
+    *, *::before, *::after {
+      box-sizing: inherit;
+    }
+
     body {
       font-family: 'Vazirmatn', sans-serif;
       margin: 0;
       padding: 0;
-      background: linear-gradient(to right, #1e3c72, #2a5298);
-      color: #fff;
-      direction: rtl;
-      transition: all 0.3s ease-in-out;
+      background: var(--bg-gradient);
+      background-size: 400% 400%;
+      color: var(--text-color);
+      transition: background 0.5s ease, color 0.5s ease;
+      animation: gradientBG 15s ease infinite;
+      overflow-x: hidden;
     }
+    
+    /* تنظیم جهت بر اساس زبان */
+    html[lang="ar"] body,
+    html[lang="fa"] body,
+    html[lang="tr"] body {
+      direction: rtl;
+    }
+
+    html:not([lang="ar"]):not([lang="fa"]):not([lang="tr"]) body {
+      direction: ltr;
+    }
+
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+    }
+
     header {
       text-align: center;
-      padding: 2rem 1rem;
+      padding: 4rem 1rem 2rem 1rem;
       animation: fadeIn 1s ease-in;
     }
+
     h1 {
-      font-size: 2.5rem;
+      font-size: 3rem;
       margin-bottom: 0.5rem;
+      text-shadow: 0 2px 10px var(--shadow-color);
+      opacity: 0;
+      animation: fadeInUp 0.8s 0.2s forwards ease-out;
     }
+
     p {
-      font-size: 1.2rem;
+      font-size: 1.3rem;
       max-width: 700px;
       margin: 0 auto;
+      color: var(--text-color-light);
+      opacity: 0;
+      animation: fadeInUp 0.8s 0.4s forwards ease-out;
     }
+
     .features {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      margin: 2rem 0;
-      gap: 1rem;
+      margin: 3rem 0;
+      gap: 1.5rem;
     }
+
     .feature {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 1rem;
-      width: 250px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 1.5rem;
+      width: 260px;
       text-align: center;
-      transition: transform 0.3s ease;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 4px 20px var(--shadow-color);
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: featureFadeIn 0.5s forwards ease-out;
     }
+    
+    .feature:nth-child(1) { animation-delay: 0.6s; }
+    .feature:nth-child(2) { animation-delay: 0.8s; }
+    .feature:nth-child(3) { animation-delay: 1.0s; }
+    .feature:nth-child(4) { animation-delay: 1.2s; }
+    .feature:nth-child(5) { animation-delay: 1.4s; }
+
     .feature:hover {
-      transform: scale(1.05);
+      transform: scale(1.05) translateY(-5px);
+      box-shadow: 0 8px 30px var(--shadow-color-hover);
+      background: var(--glass-hover);
     }
-    .lang-switcher {
-      text-align: center;
-      margin: 1rem;
-    }
-    .lang-switcher button {
-      margin: 0.3rem;
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 5px;
-      background: #ffd700;
-      color: #000;
-      cursor: pointer;
-    }
+
     .github-link {
       text-align: center;
-      margin: 2rem 0;
+      margin: 2rem 0; /* کاهش فاصله برای دکمه‌های جدید */
+      opacity: 0;
+      animation: fadeIn 1s ease-in 1.8s forwards;
     }
-    .github-link a {
-      background: #fff;
-      color: #2a5298;
-      padding: 0.7rem 1.5rem;
-      border-radius: 8px;
-      text-decoration: none;
+
+    /* --- دکمه‌های دانلود و مشاهده --- */
+    .action-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin: 1.5rem 0 3rem 0;
+      opacity: 0;
+      animation: fadeInUp 1s ease-out 1.6s forwards;
+    }
+    
+    .action-button {
+      font-family: 'Vazirmatn', sans-serif;
+      font-size: 1.1rem;
       font-weight: bold;
-      transition: background 0.3s ease;
+      padding: 0.8rem 1.8rem;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      border: 1px solid transparent;
+      box-shadow: 0 4px 15px var(--shadow-color);
+      cursor: pointer;
     }
-    .github-link a:hover {
-      background: #ffd700;
-      color: #000;
+    
+    .action-button.primary {
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
     }
+    .action-button.primary:hover {
+      background: var(--btn-primary-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+    }
+    
+    .action-button.secondary {
+      background: var(--btn-secondary-bg);
+      color: var(--btn-secondary-text);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(5px);
+    }
+    .action-button.secondary:hover {
+      background: var(--btn-secondary-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px var(--shadow-color-hover);
+    }
+
+
     footer {
       text-align: center;
       padding: 2rem 1rem;
-      font-size: 1.5rem;
+      font-size: 1rem;
       background: rgba(0, 0, 0, 0.2);
+      margin-top: 3rem;
+      color: var(--text-color-light);
     }
+    
+    footer strong {
+      display: block;
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-color);
+    }
+
+    footer a {
+      color: var(--accent-color);
+      text-decoration: none;
+      font-weight: bold;
+      transition: color 0.3s ease;
+    }
+    footer a:hover {
+      color: var(--text-color);
+    }
+
+    /* --- منوی تنظیمات گوشه صفحه --- */
+    .settings-container {
+      position: fixed;
+      top: 20px;
+      right: 20px; /* پیش‌فرض برای LTR */
+      z-index: 1000;
+    }
+    
+    /* جابجایی منو برای زبان‌های RTL */
+    html[lang="ar"] .settings-container,
+    html[lang="fa"] .settings-container,
+    html[lang="tr"] .settings-container {
+      right: auto;
+      left: 20px;
+    }
+
+    .settings-menu-toggle {
+      width: 45px;
+      height: 45px;
+      background: var(--glass-bg);
+      color: var(--text-color);
+      border: 1px solid var(--glass-border);
+      border-radius: 50%;
+      font-size: 1.5rem;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+
+    .settings-menu-toggle:hover {
+      background: var(--glass-hover);
+      transform: scale(1.1) rotate(20deg);
+    }
+
+    .settings-dropdown {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0; /* پیش‌فرض برای LTR */
+      width: 220px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      box-shadow: 0 8px 30px var(--shadow-color-hover);
+      padding: 0.75rem;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(10px);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    /* جابجایی منو برای زبان‌های RTL */
+    html[lang="ar"] .settings-dropdown,
+    html[lang="fa"] .settings-dropdown,
+    html[lang="tr"] .settings-dropdown {
+      right: auto;
+      left: 0;
+    }
+
+    .settings-dropdown.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .settings-dropdown-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    
+    .settings-dropdown-item:not(:last-child) {
+      margin-bottom: 5px;
+    }
+
+    .settings-dropdown-item:hover {
+      background: var(--glass-hover);
+    }
+    
+    .settings-dropdown-item span {
+      font-size: 0.95rem;
+    }
+
+    /* --- استایل سوییچ حالت تاریک --- */
+    .dark-mode-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+    }
+
+    .dark-mode-switch input { 
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #555;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent-color);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    /* --- مدال (Modal) انتخاب زبان --- */
+    #language-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 2000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      
+      /* انیمیشن محو شدن نرم */
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease;
+    }
+    
+    #language-modal.modal-visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal-content {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 15px;
+      padding: 2rem;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 10px 40px var(--shadow-color-hover);
+      position: relative;
+
+      /* انیمیشن نرم باز شدن باکس */
+      transform: scale(0.9);
+      transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    #language-modal.modal-visible .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      font-size: 1.5rem;
+      color: var(--text-color);
+      cursor: pointer;
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+    .modal-close:hover {
+      transform: scale(1.2);
+      color: var(--accent-color);
+    }
+    
+    .modal-title {
+      text-align: center;
+      margin-top: 0;
+      margin-bottom: 2rem;
+      font-size: 1.5rem;
+    }
+
+    .language-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    
+    .lang-button {
+      padding: 1rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      color: var(--text-color);
+      font-family: 'Vazirmatn', sans-serif;
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .lang-button:hover {
+      background: var(--accent-color);
+      color: var(--accent-color-dark);
+      transform: translateY(-3px);
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    }
+
+
+    /* --- کی‌فریم‌های انیمیشن --- */
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    
+    @keyframes featureFadeIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* --- رسپانسیو --- */
     @media (max-width: 600px) {
-      h1 { font-size: 2rem; }
+      .container {
+        padding: 1rem;
+      }
+      h1 { font-size: 2.2rem; }
+      p { font-size: 1.1rem; }
       .feature { width: 90%; }
+      .language-grid {
+        grid-template-columns: 1fr;
+      }
+      .modal-content {
+        width: 95%;
+        padding: 1.5rem;
+      }
+      .settings-container {
+        top: 15px;
+        right: 15px;
+      }
+      html[lang="ar"] .settings-container,
+      html[lang="fa"] .settings-container,
+      html[lang="tr"] .settings-container {
+        right: auto;
+        left: 15px;
+      }
+      .action-buttons {
+        gap: 0.75rem;
+      }
+      .action-button {
+        font-size: 1rem;
+        padding: 0.7rem 1.5rem;
+        width: 100%; /* دکمه‌ها در موبایل تمام عرض شوند */
+        box-sizing: border-box; /* برای پدینگ صحیح */
+        text-align: center;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="lang-switcher">
-    <button onclick="setLang('fa')">فارسی</button>
-    <button onclick="setLang('en')">English</button>
-    <button onclick="setLang('ar')">العربية</button>
-    <button onclick="setLang('ru')">Русский</button>
-    <button onclick="setLang('zh')">中文</button>
-    <button onclick="setLang('hi')">हिन्दी</button>
+
+  <div class="settings-container">
+    <button class="settings-menu-toggle" id="settings-toggle-btn" aria-label="Settings Menu">
+      ⚙️
+    </button>
+    <div class="settings-dropdown" id="settings-dropdown-menu">
+      <div class="settings-dropdown-item" id="lang-modal-open">
+        <span data-key="lang-menu">🌐 تغییر زبان</span>
+        <span>&rsaquo;</span>
+      </div>
+      <div class="settings-dropdown-item">
+        <span data-key="dark-mode"> حالت تاریک 🌙</span>
+        <label class="dark-mode-switch">
+          <input type="checkbox" id="dark-mode-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
   </div>
 
-  <header>
-    <h1 id="title">ParsOS NEXT</h1>
-    <p id="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
-  </header>
+  <div id="language-modal">
+    <div class="modal-content">
+      <span class="modal-close" id="modal-close-btn">&times;</span>
+      <h2 class="modal-title" data-key="modal-title">زبان خود را انتخاب کنید</h2>
+      <div class="language-grid">
+        <button class="lang-button" onclick="setLang('fa')">فارسی</button>
+        <button class="lang-button" onclick="setLang('en')">English</button>
+        <button class="lang-button" onclick="setLang('ar')">العربية</button>
+        <button class="lang-button" onclick="setLang('ru')">Русский</button>
+        <button class="lang-button" onclick="setLang('zh')">中文</button>
+        <button class="lang-button" onclick="setLang('hi')">हिन्दी</button>
+        <button class="lang-button" onclick="setLang('es')">Español</button>
+        <button class="lang-button" onclick="setLang('fr')">Français</button>
+        <button class="lang-button" onclick="setLang('tr')">Türkçe</button>
+        <button class="lang-button" onclick="setLang('it')">Italiano</button>
+      </div>
+    </div>
+  </div>
 
-  <section class="features" id="features">
-    <div class="feature">🎮 انیمیشن‌های روان</div>
-    <div class="feature">📱 مدیریت برنامه‌ها</div>
-    <div class="feature">🔔 مرکز اعلان‌ها</div>
-    <div class="feature">🧊 افکت‌های شیشه‌ای و بلور</div>
-    <div class="feature">🌌 جلوه عمق برای صفحه قفل</div>
-  </section>
+  <div class="container">
+    <header>
+      <h1 id="title">ParsOS NEXT</h1>
+      <p id="description" data-key="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
+    </header>
 
-  <div class="github-link">
-    <a href="https://github.com/amirali1390-bit/ParsOS-NEXT" target="_blank">مشاهده پروژه در GitHub</a>
+    <section class="features" id="features">
+      </section>
+
+    <div class="github-link">
+      <a class="github-button" 
+         href="https://github.com/amirali1390-bit/ParsOS-NEXT" 
+         data-icon="octicon-star" 
+         data-size="large" 
+         data-show-count="true" 
+         aria-label="Star amirali1390-bit/ParsOS-NEXT on GitHub">Star</a>
+    </div>
+
+    <div class="action-buttons">
+      <a href="https://github.com/amirali1390-bit/ParsOS-NEXT/archive/refs/heads/main.zip" 
+         class="action-button primary" 
+         data-key="btn-download">
+         دانلود مستقیم
+      </a>
+      <a href="https://github.com/amirali1390-bit/ParsOS-NEXT" 
+         target="_blank" 
+         class="action-button secondary"
+         data-key="btn-view">
+         مشاهده پروژه
+      </a>
+    </div>
+
   </div>
 
   <footer>
     <strong>I ❤️ IRAN</strong>
+    <div data-key="footer-made-by">ساخته شده توسط <a href="https://github.com/amirali1390-bit" target="_blank">amirali1390-bit</a></div>
   </footer>
 
   <script>
+    // آبجکت ترجمه‌ها گسترش یافته است
     const translations = {
       en: {
-        description: "A powerful mobile OS simulator built with Python and Pygame",
-        features: ["🎮 Smooth animations", "📱 App management", "🔔 Notification center", "🧊 Glass & blur effects", "🌌 Lock screen depth effect"]
+        "description": "A powerful mobile OS simulator built with Python and Pygame",
+        "features": ["🎮 Smooth animations", "📱 App management", "🔔 Notification center", "🧊 Glass & blur effects", "🌌 Lock screen depth effect"],
+        "lang-menu": "🌐 Change Language",
+        "dark-mode": "Dark Mode 🌙",
+        "modal-title": "Choose Your Language",
+        "btn-download": "Direct Download",
+        "btn-view": "View Project",
+        "footer-made-by": "Made by"
       },
       fa: {
-        description: "شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame",
-        features: ["🎮 انیمیشن‌های روان", "📱 مدیریت برنامه‌ها", "🔔 مرکز اعلان‌ها", "🧊 افکت‌های شیشه‌ای و بلور", "🌌 جلوه عمق برای صفحه قفل"]
+        "description": "شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame",
+        "features": ["🎮 انیمیشن‌های روان", "📱 مدیریت برنامه‌ها", "🔔 مرکز اعلان‌ها", "🧊 افکت‌های شیشه‌ای و بلور", "🌌 جلوه عمق برای صفحه قفل"],
+        "lang-menu": "🌐 تغییر زبان",
+        "dark-mode": " حالت تاریک 🌙",
+        "modal-title": "زبان خود را انتخاب کنید",
+        "btn-download": "دانلود مستقیم",
+        "btn-view": "مشاهده پروژه",
+        "footer-made-by": "ساخته شده توسط"
       },
       ar: {
-        description: "محاكي نظام تشغيل الهاتف المحمول باستخدام Python و Pygame",
-        features: ["🎮 رسوم متحركة سلسة", "📱 إدارة التطبيقات", "🔔 مركز الإشعارات", "🧊 تأثيرات زجاجية وضبابية", "🌌 تأثير العمق لشاشة القفل"]
+        "description": "محاكي نظام تشغيل الهاتف المحمول باستخدام Python و Pygame",
+        "features": ["🎮 رسوم متحركة سلسة", "📱 إدارة التطبيقات", "🔔 مركز الإشعارات", "🧊 تأثيرات زجاجية وضبابية", "🌌 تأثير العمق لشاشة القفل"],
+        "lang-menu": "🌐 تغيير اللغة",
+        "dark-mode": "الوضع الداكن 🌙",
+        "modal-title": "اختر لغتك",
+        "btn-download": "تحميل مباشر",
+        "btn-view": "عرض المشروع",
+        "footer-made-by": "صنع بواسطة"
       },
       ru: {
-        description: "Мощный симулятор мобильной ОС на Python и Pygame",
-        features: ["🎮 Плавная анимация", "📱 Управление приложениями", "🔔 Центр уведомлений", "🧊 Эффекты стекла и размытия", "🌌 Эффект глубины экрана блокировки"]
+        "description": "Мощный симулятор мобильной ОС на Python и Pygame",
+        "features": ["🎮 Плавная анимация", "📱 Управление приложениями", "🔔 Центр уведомлений", "🧊 Эффекты стекла и размытия", "🌌 Эффект глубины экрана блокировки"],
+        "lang-menu": "🌐 Изменить язык",
+        "dark-mode": "Темный режим 🌙",
+        "modal-title": "Выберите ваш язык",
+        "btn-download": "Прямая загрузка",
+        "btn-view": "Посмотреть проект",
+        "footer-made-by": "Сделано"
       },
       zh: {
-        description: "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
-        features: ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"]
+        "description": "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
+        "features": ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"],
+        "lang-menu": "🌐 改变语言",
+        "dark-mode": "黑暗模式 🌙",
+        "modal-title": "选择你的语言",
+        "btn-download": "直接下载",
+        "btn-view": "查看项目",
+        "footer-made-by": "由...制作"
       },
       hi: {
-        description: "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
-        features: ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"]
+        "description": "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
+        "features": ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"],
+        "lang-menu": "🌐 भाषा बदलें",
+        "dark-mode": "डार्क मोड 🌙",
+        "modal-title": "अपनी भाषा चुनें",
+        "btn-download": "सीधा डाउनलोड",
+        "btn-view": "परियोजना देखें",
+        "footer-made-by": "द्वारा बनाया गया"
+      },
+      es: {
+        "description": "Un potente simulador de sistema operativo móvil creado con Python y Pygame",
+        "features": ["🎮 Animaciones fluidas", "📱 Gestión de aplicaciones", "🔔 Centro de notificaciones", "🧊 Efectos de cristal y desenfoque", "🌌 Efecto de profundidad en pantalla de bloqueo"],
+        "lang-menu": "🌐 Cambiar idioma",
+        "dark-mode": "Modo oscuro 🌙",
+        "modal-title": "Elige tu idioma",
+        "btn-download": "Descarga directa",
+        "btn-view": "Ver proyecto",
+        "footer-made-by": "Hecho por"
+      },
+      fr: {
+        "description": "Un puissant simulateur de système d'exploitation mobile conçu avec Python et Pygame",
+        "features": ["🎮 Animations fluides", "📱 Gestion des applications", "🔔 Centre de notifications", "🧊 Effets de verre et de flou", "🌌 Effet de profondeur sur l'écran de verrouillage"],
+        "lang-menu": "🌐 Changer de langue",
+        "dark-mode": "Mode sombre 🌙",
+        "modal-title": "Choisissez votre langue",
+        "btn-download": "Téléchargement direct",
+        "btn-view": "Voir le projet",
+        "footer-made-by": "Fait par"
+      },
+      tr: {
+        "description": "Python ve Pygame ile oluşturulmuş güçlü bir mobil işletim sistemi simülatörü",
+        "features": ["🎮 Akıcı animasyonlar", "📱 Uygulama yönetimi", "🔔 Bildirim merkezi", "🧊 Cam ve bulanıklık efektleri", "🌌 Kilit ekranı derinlik efekti"],
+        "lang-menu": "🌐 Dili değiştir",
+        "dark-mode": "Karanlık Mod 🌙",
+        "modal-title": "Dilinizi seçin",
+        "btn-download": "Doğrudan İndir",
+        "btn-view": "Projeyi Görüntüle",
+        "footer-made-by": "Yapan"
+      },
+      it: {
+        "description": "Un potente simulatore di sistema operativo mobile costruito con Python e Pygame",
+        "features": ["🎮 Animazioni fluide", "📱 Gestione app", "🔔 Centro notifiche", "🧊 Effetti vetro e sfocatura", "🌌 Effetto profondità blocco schermo"],
+        "lang-menu": "🌐 Cambia lingua",
+        "dark-mode": "Modalità scura 🌙",
+        "modal-title": "Scegli la tua lingua",
+        "btn-download": "Download diretto",
+        "btn-view": "Vedi progetto",
+        "footer-made-by": "Creato da"
       }
     };
+    
+    // --- عناصر DOM ---
+    const settingsToggle = document.getElementById('settings-toggle-btn');
+    const settingsDropdown = document.getElementById('settings-dropdown-menu');
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const languageModal = document.getElementById('language-modal');
+    const openModalBtn = document.getElementById('lang-modal-open');
+    const closeModalBtn = document.getElementById('modal-close-btn');
 
+    // --- مدیریت منوی تنظیمات ---
+    settingsToggle.addEventListener('click', (e) => {
+      e.stopPropagation(); 
+      settingsDropdown.classList.toggle('active');
+    });
+
+    window.addEventListener('click', (e) => {
+      if (!settingsDropdown.contains(e.target) && !settingsToggle.contains(e.target)) {
+        settingsDropdown.classList.remove('active');
+      }
+    });
+
+    // --- مدیریت حالت تاریک ---
+    function setDarkMode(isDark) {
+      const theme = isDark ? 'dark' : 'light';
+      document.body.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+      darkModeToggle.checked = isDark;
+    }
+
+    darkModeToggle.addEventListener('change', () => {
+      setDarkMode(darkModeToggle.checked);
+    });
+
+    // --- مدیریت مدال زبان ---
+    openModalBtn.addEventListener('click', () => {
+      languageModal.classList.add('modal-visible');
+      settingsDropdown.classList.remove('active'); // بستن منوی تنظیمات
+    });
+
+    closeModalBtn.addEventListener('click', () => {
+      languageModal.classList.remove('modal-visible');
+    });
+
+    languageModal.addEventListener('click', (e) => {
+      if (e.target === languageModal) {
+        languageModal.classList.remove('modal-visible');
+      }
+    });
+
+    // --- تابع تغییر زبان (بهبود یافته) ---
     function setLang(lang) {
-      document.getElementById("description").innerText = translations[lang].description;
+      if (!translations[lang]) {
+        console.warn(`Language "${lang}" not found. Defaulting to 'fa'.`);
+        lang = 'fa';
+      }
+
+      // 1. تغییر زبان سند (برای اعمال CSS direction)
+      document.documentElement.lang = lang;
+
+      // 2. ترجمه تمام عناصر دارای data-key
+      document.querySelectorAll('[data-key]').forEach(elem => {
+        const key = elem.dataset.key;
+        if (translations[lang][key]) {
+          // اگر عنصر فوتر است، باید لینک را حفظ کنیم
+          if (key === 'footer-made-by') {
+            elem.innerHTML = `${translations[lang][key]} <a href="https://github.com/amirali1390-bit" target="_blank">amirali1390-bit</a>`;
+          } else {
+            elem.innerText = translations[lang][key];
+          }
+        }
+      });
+      
+      // 3. بازسازی کارت‌های ویژگی‌ها (برای اجرای مجدد انیمیشن)
       const features = document.getElementById("features");
-      features.innerHTML = "";
+      features.innerHTML = ""; // خالی کردن کارت‌های قبلی
+      
       translations[lang].features.forEach(f => {
         const div = document.createElement("div");
         div.className = "feature";
         div.innerText = f;
         features.appendChild(div);
       });
-      document.body.dir = lang === "ar" || lang === "fa" ? "rtl" : "ltr";
+
+      // 4. ذخیره زبان انتخابی
+      localStorage.setItem('language', lang);
+      
+      // 5. بستن مدال (اگر باز بود)
+      languageModal.classList.remove('modal-visible');
     }
+    
+    // --- بارگذاری اولیه صفحه ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. اعمال تم ذخیره شده
+      const savedTheme = localStorage.getItem('theme');
+      // بررسی تم پیش‌فرض سیستم کاربر اگر تمی ذخیره نشده بود
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      if (savedTheme) {
+        setDarkMode(savedTheme === 'dark');
+      } else {
+        setDarkMode(prefersDark); // اعمال تم بر اساس تنظیمات سیستم
+      }
+
+      // 2. اعمال زبان ذخیره شده یا تشخیص خودکار
+      const savedLang = localStorage.getItem('language');
+      const userLang = navigator.language.split('-')[0]; // 'fa-IR' -> 'fa'
+      const defaultLang = 'fa';
+      
+      let langToSet = defaultLang;
+      
+      if (savedLang) {
+        langToSet = savedLang; // اولویت با زبان ذخیره شده کاربر
+      } else if (translations[userLang]) {
+        langToSet = userLang; // اگر زبان مرورگر پشتیبانی می‌شود
+      }
+      
+      setLang(langToSet); // اعمال زبان
+    });
+
   </script>
 </body>
 </html>

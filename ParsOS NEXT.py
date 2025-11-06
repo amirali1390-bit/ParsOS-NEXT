@@ -105,6 +105,22 @@ notifications = [] # هر اعلان یک دیکشنری شامل متن، زم�
 
 DOWNLOADABLE_EXTENSIONS = ['.zip', '.exe', '.pdf', '.png', '.jpg', '.jpeg', '.mp3', '.wav', '.txt', '.prs']
 
+# (جدید) متغیرهای مدیریت زبان
+current_language = 'fa' # زبان پیش‌فرض که از تنظیمات بارگذاری خواهد شد
+current_language_name = 'فارسی' # نام نمایشی زبان فعلی
+lang_dict = {} # دیکشنری کامل زبان‌ها در اینجا بارگذاری می‌شود
+is_language_picker_open = False
+language_picker_progress = 0.0 # 0.0: بسته, 1.0: باز
+language_picker_blurred_bg = None # برای پس‌زمینه تار مودال
+
+# (جدید) لیست زبان‌های پشتیبانی شده (نام به زبان خودشان)
+SUPPORTED_LANGUAGES = {
+    'fa': 'فارسی',
+    'en': 'English',
+    'ar': 'العربية',
+    'ru': 'Русский',
+    'zh': '中国人'
+}
 # -------------------
 #      مدیریت رنگ‌ها و تم‌ها
 # -------------------
@@ -410,6 +426,9 @@ closing_recent_apps = []
 target_dragged_recent_app_offset_y = 0
 animating_recent_app_index = None
 
+# (جدید) متغیرهای مدیریت نخ برای افکت بلور
+blur_thread_result = None # برای نگهداری نتیجه نخ بلور
+is_blur_processing = False  # برای جلوگیری از اجرای همزمان چند نخ
 
 # متغیرهای صفحه اصلی
 icons = [[] for _ in range(num_home_pages)]
@@ -608,7 +627,8 @@ def save_settings():
         'lock_screen_style': lock_screen_style,
         'wallpaper_path': wallpaper_path,
         'lock_screen_wallpaper_path': lock_screen_wallpaper_path,
-        'is_depth_effect_enabled': is_depth_effect_enabled, # (جدید)
+        'is_depth_effect_enabled': is_depth_effect_enabled,
+        'current_language': current_language, # (جدید) ذخیره زبان
     }
     try:
         with open('settings.json', 'w') as f: json.dump(settings_data, f, indent=4)
@@ -617,7 +637,7 @@ def save_settings():
 def load_settings():
     global is_dark_mode, theme_animation_progress, saved_light_wallpaper_top, saved_light_wallpaper_bottom, \
            BG_TOP_COLOR, BG_BOTTOM_COLOR, lock_screen_style, dark_mode_switch_progress, wallpaper_path, current_wallpaper_image, \
-           lock_screen_wallpaper_path, current_lock_screen_wallpaper_image, is_depth_effect_enabled
+           lock_screen_wallpaper_path, current_lock_screen_wallpaper_image, is_depth_effect_enabled,current_language
     try:
         with open('settings.json', 'r') as f:
             settings_data = json.load(f)
@@ -626,7 +646,8 @@ def load_settings():
             wallpaper_path = settings_data.get('wallpaper_path', None)
             lock_screen_wallpaper_path = settings_data.get('lock_screen_wallpaper_path', None)
             is_depth_effect_enabled = settings_data.get('is_depth_effect_enabled', False) # (جدید)
-
+            current_language = settings_data.get('current_language', 'fa')
+            
             if wallpaper_path and os.path.exists(wallpaper_path):
                 try:
                     loaded_image = pygame.image.load(wallpaper_path).convert()
@@ -723,9 +744,74 @@ if not os.path.exists('wallpapers'): os.makedirs('wallpapers')
 
 load_settings(); load_layout(); load_notes(); load_music_files()
 
+# (جدید) تابع بارگذاری داده‌های زبان
+def load_language_data():
+    """
+    داده‌های زبان را از languages.json بارگذاری می‌کند.
+    این تابع باید بعد از load_settings (که current_language را می‌خواند) فراخوانی شود.
+    """
+    global lang_dict, current_language_name
+    try:
+        with open('languages.json', 'r', encoding='utf-8') as f:
+            all_lang_data = json.load(f)
+            # دیکشنری مربوط به زبان فعلی را بارگذاری کن
+            if current_language in all_lang_data:
+                lang_dict = all_lang_data[current_language]
+            else:
+                # اگر زبان ذخیره شده در فایل نبود، به انگلیسی یا فارسی بازگرد
+                lang_dict = all_lang_data.get('en', all_lang_data.get('fa', {}))
+                
+        # به‌روزرسانی نام نمایشی زبان فعلی
+        current_language_name = SUPPORTED_LANGUAGES.get(current_language, 'English')
+        print(f"Language loaded: {current_language_name}")
+        
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Warning: 'languages.json' not found or corrupted: {e}")
+        print("Falling back to default keys.")
+        # در صورت نبود فایل، سیستم از کلیدها به عنوان متن استفاده می‌کند
+        lang_dict = {}
+
+# (جدید) تابع دریافت رشته ترجمه شده
+def get_string(key, fallback=None):
+    """
+    رشته ترجمه شده برای کلید داده شده را برمی‌گرداند.
+    اگر یافت نشد، خود کلید یا متن جایگزین (fallback) را برمی‌گرداند.
+    """
+    # ابتدا سعی کن از دیکشنری بارگذاری شده بخوانی
+    translated_text = lang_dict.get(key)
+    
+    if translated_text:
+        return translated_text
+    
+    # اگر در دیکشنری نبود، از متن جایگزین استفاده کن
+    if fallback:
+        return fallback
+        
+    # اگر هیچ‌کدام نبود، خود کلید را به عنوان متن برگردان
+    return key.replace('_', ' ').title()
+
+# (جدید) بارگذاری فایل زبان بلافاصله پس از بارگذاری تنظیمات
+load_language_data()
+
 # --------------------------
 #       توابع کمکی
 # --------------------------
+def process_blur_in_thread(snapshot):
+    """(جدید) این تابع در یک نخ جداگانه اجرا می‌شود تا افکت بلور را پردازش کند"""
+    global blur_thread_result, is_blur_processing
+    print("Blur thread started...") # (برای دیباگ)
+    
+    try:
+        # کار سنگین و زمان‌بر در اینجا انجام می‌شود
+        blurred_image = apply_gaussian_blur(snapshot, iterations=15)
+        blur_thread_result = blurred_image
+    except Exception as e:
+        print(f"Error in blur thread: {e}")
+        blur_thread_result = snapshot # در صورت خطا، حداقل تصویر اصلی را برگردان
+        
+    print("Blur thread finished.")
+    is_blur_processing = False # اعلام پایان کار
+    
 # (جدید) توابع ایزینگ برای انیمیشن‌های روان و حرفه‌ای
 def ease_out_cubic(t):
     """انیمیشن سریع در شروع و کند در پایان (بسیار روان)"""
@@ -1596,7 +1682,7 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
         wifi_color = tuple(int(b + (a - b) * btn_wifi['color_progress']) for b, a in zip(base_color, active_color))
         final_wifi_color = (*wifi_color, int(content_alpha * 0.8))
         draw_rounded_rect(cc_surface, wifi_rect_base, final_wifi_color, 20)
-        wifi_text_surf = render_persian_text(btn_wifi['label'], text_font, text_color)
+        wifi_text_surf = render_persian_text(get_string(btn_wifi.get('label_key', 'wifi')), text_font, text_color)
         wifi_text_surf.set_alpha(content_alpha)
         cc_surface.blit(wifi_text_surf, wifi_text_surf.get_rect(left=wifi_rect_base.left + 15, top=wifi_rect_base.top + 15))
 
@@ -1605,7 +1691,7 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
         data_color = tuple(int(b + (a - b) * btn_data['color_progress']) for b, a in zip(base_color, active_color))
         final_data_color = (*data_color, int(content_alpha * 0.8))
         draw_rounded_rect(cc_surface, data_rect_base, final_data_color, 20)
-        data_text_surf = render_persian_text(btn_data['label'], text_font, text_color)
+        data_text_surf = render_persian_text(get_string(btn_data.get('label_key', 'mobile_data')), text_font, text_color)
         data_text_surf.set_alpha(content_alpha)
         cc_surface.blit(data_text_surf, data_text_surf.get_rect(left=data_rect_base.left + 15, top=data_rect_base.top + 15))
         
@@ -1616,7 +1702,7 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
         media_color = (50, 50, 60, int(content_alpha * 0.8)) if is_dark_mode else (220, 220, 225, int(content_alpha * 0.8))
         draw_rounded_rect(cc_surface, media_rect, media_color, 20)
         
-        media_text_surf = render_persian_text("No playback history", status_bar_font, sub_text_color)
+        media_text_surf = render_persian_text(get_string("no_playback_history"), status_bar_font, sub_text_color)
         media_text_surf.set_alpha(content_alpha)
         cc_surface.blit(media_text_surf, media_text_surf.get_rect(center=media_rect.center))
         
@@ -2195,14 +2281,20 @@ def draw_page_indicators(current_page, total_pages):
 
 def draw_settings_main_screen(surface):
     surface.fill(get_current_color('settings_bg'))
-    title = render_persian_text("تنظیمات", settings_title_font, get_current_color('settings_title')); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
+    # (اصلاح شده)
+    title = render_persian_text(get_string("settings"), settings_title_font, get_current_color('settings_title'))
+    surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     btn_color, text_color = get_current_color('settings_button_bg'), get_current_color('settings_button_text')
+
+    # (اصلاح شده) دکمه جدید اضافه شد و متن‌ها از get_string خوانده می‌شوند
     buttons_to_draw = [
-        ("پس‌زمینه", pygame.Rect(30, 120, surface.get_width() - 60, 50), 'wallpaper_btn'),
-        ("صفحه نمایش", pygame.Rect(30, 180, surface.get_width() - 60, 50), 'display_btn'),
-        ("صفحه قفل", pygame.Rect(30, 240, surface.get_width() - 60, 50), 'lock_screen_btn'),
-        ("درباره", pygame.Rect(30, 300, surface.get_width() - 60, 50), 'about_btn')
+        (get_string("wallpaper"), pygame.Rect(30, 120, surface.get_width() - 60, 50), 'wallpaper_btn'),
+        (get_string("display"), pygame.Rect(30, 180, surface.get_width() - 60, 50), 'display_btn'),
+        (get_string("lock_screen"), pygame.Rect(30, 240, surface.get_width() - 60, 50), 'lock_screen_btn'),
+        (get_string("language_region"), pygame.Rect(30, 300, surface.get_width() - 60, 50), 'lang_btn'), # (جدید)
+        (get_string("about"), pygame.Rect(30, 360, surface.get_width() - 60, 50), 'about_btn') # (موقعیت Y تغییر کرد)
     ]
+
     clickable_rects = {}
     for text, rect, key in buttons_to_draw:
         draw_rounded_rect(surface, rect, btn_color, 10)
@@ -2212,11 +2304,127 @@ def draw_settings_main_screen(surface):
         clickable_rects[key] = rect
     return clickable_rects
 
+# (جدید) صفحه تنظیمات زبان
+def draw_settings_language_screen(surface):
+    surface.fill(get_current_color('settings_bg'))
+    text_color = get_current_color('settings_title')
+    btn_color = get_current_color('settings_button_bg')
+    btn_text_color = get_current_color('settings_button_text')
+
+    # دکمه بازگشت
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE)
+    back_btn_rect = back_btn_text.get_rect(left=20, top=55)
+    surface.blit(back_btn_text, back_btn_rect)
+
+    # عنوان
+    title = render_persian_text(get_string("language_region"), settings_title_font, text_color)
+    surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
+
+    # دکمه انتخاب زبان
+    select_lang_rect = pygame.Rect(30, 120, surface.get_width() - 60, 50)
+    draw_rounded_rect(surface, select_lang_rect, btn_color, 10)
+
+    # متن سمت راست (لیبل)
+    label_text = render_persian_text(get_string("language"), text_font, btn_text_color)
+    surface.blit(label_text, label_text.get_rect(right=select_lang_rect.right - 15, centery=select_lang_rect.centery))
+
+    # متن سمت چپ (زبان فعلی)
+    # (از render_persian_text استفاده می‌کنیم تا نام زبان به درستی نمایش داده شود)
+    current_lang_text = render_persian_text(current_language_name, text_font, btn_text_color)
+    surface.blit(current_lang_text, current_lang_text.get_rect(left=select_lang_rect.left + 15, centery=select_lang_rect.centery))
+
+    # افکت کلیک
+    if active_button_rect == back_btn_rect:
+        surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, back_btn_rect.topleft)
+    if active_button_rect == select_lang_rect:
+        surf = pygame.Surface(select_lang_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, select_lang_rect.topleft)
+
+    return {'back_btn': back_btn_rect, 'select_lang_btn': select_lang_rect}
+
+# (جدید) تابع رسم پنل انتخاب زبان
+def draw_language_picker(surface, progress):
+    """
+    یک پنل مودال برای انتخاب زبان رسم می‌کند.
+    progress از 0.0 تا 1.0 است.
+    """
+    if progress <= 0: return {} # دیکشنری خالی برای rectها برمی‌گرداند
+
+    # رسم پس‌زمینه بلور شده
+    if language_picker_blurred_bg:
+        language_picker_blurred_bg.set_alpha(int(255 * progress))
+        surface.blit(language_picker_blurred_bg, (0, 0))
+
+    # انیمیشن نرم (ease-out-cubic)
+    ease_progress = 1 - pow(1 - progress, 3)
+
+    # محاسبه ابعاد و موقعیت پنل
+    base_width, base_height = 300, 340 # ارتفاع متناسب با 5 زبان + عنوان
+    start_scale = 0.8
+    end_scale = 1.0
+
+    current_scale = start_scale + (end_scale - start_scale) * ease_progress
+    current_width = int(base_width * current_scale)
+    current_height = int(base_height * current_scale)
+
+    panel_rect = pygame.Rect(0, 0, current_width, current_height)
+    panel_rect.center = surface.get_rect().center
+
+    # رسم بدنه پنل
+    panel_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+    # استفاده از رنگ‌های تیره/روشن مودال
+    bg_color = (250, 250, 250) if not is_dark_mode else (45, 45, 55)
+
+    # اعمال آلفا بر اساس انیمیشن
+    final_bg_color = (*bg_color, int(230 * ease_progress))
+    draw_rounded_rect(panel_surface, panel_surface.get_rect(), final_bg_color, 20)
+
+    clickable_rects = {}
+
+    # رسم محتوا فقط زمانی که انیمیشن نزدیک به پایان است
+    if ease_progress > 0.9:
+        content_alpha = (ease_progress - 0.9) / 0.1 * 255 # محو شدن نرم
+        text_color = get_current_color('context_menu_text')
+
+        title_text = get_string("select_language", "انتخاب زبان")
+        title_surf = render_persian_text(title_text, settings_title_font, text_color)
+        title_surf.set_alpha(content_alpha)
+        panel_surface.blit(title_surf, title_surf.get_rect(centerx=panel_rect.width / 2, top=20))
+
+        y_pos = 70
+        item_height = 40
+        padding = 10
+
+        for lang_code, lang_name in SUPPORTED_LANGUAGES.items():
+            item_rect_local = pygame.Rect(20, y_pos, panel_rect.width - 40, item_height)
+
+            # رسم دکمه زبان
+            lang_text_surf = render_persian_text(lang_name, text_font, text_color)
+            lang_text_surf.set_alpha(content_alpha)
+            panel_surface.blit(lang_text_surf, lang_text_surf.get_rect(center=item_rect_local.center))
+
+            # هایلایت زبان فعلی
+            if lang_code == current_language:
+                highlight_rect = item_rect_local.inflate(0, -4) # کمی کوچکتر
+                draw_rounded_rect(panel_surface, highlight_rect, (BLUE[0], BLUE[1], BLUE[2], int(100 * content_alpha / 255)), 10)
+
+            # (مهم) ذخیره Rect واقعی روی صفحه برای تشخیص کلیک
+            # ما Rect را نسبت به پنل داریم، باید آن را به مختصات صفحه منتقل کنیم
+            screen_rect = item_rect_local.move(panel_rect.topleft)
+            clickable_rects[f'lang_{lang_code}'] = screen_rect
+
+            y_pos += item_height + padding
+
+    # رسم پنل نهایی روی صفحه
+    panel_surface.set_alpha(int(255 * ease_progress)) # آلفای کلی پنل
+    surface.blit(panel_surface, panel_rect.topleft)
+
+    return clickable_rects
+
 def draw_settings_wallpaper_screen(surface):
     global wallpaper_preset_rects; wallpaper_preset_rects.clear()
     surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text("< بازگشت", text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
-    title = render_persian_text("پس‌زمینه", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    title = render_persian_text(get_string("wallpaper", "پس‌زمینه"), settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     preview_size = (SCREEN_WIDTH - 90) / 2
     clickable_rects = {'back_btn': back_btn_rect}
     for i, (top, bottom) in enumerate(wallpaper_presets):
@@ -2230,7 +2438,7 @@ def draw_settings_wallpaper_screen(surface):
              pygame.draw.rect(surface, BLUE, rect, 3, border_radius=12)
     custom_btn_rect = pygame.Rect(30, 120 + 2 * (preview_size * 1.3), surface.get_width() - 60, 50)
     draw_rounded_rect(surface, custom_btn_rect, get_current_color('settings_button_bg'), 10)
-    custom_text = render_persian_text("انتخاب از فایل...", text_font, get_current_color('settings_button_text'))
+    custom_text = render_persian_text(get_string("select_from_file", "انتخاب از فايل..."), text_font, get_current_color('settings_button_text'))
     surface.blit(custom_text, custom_text.get_rect(center=custom_btn_rect.center))
     clickable_rects['custom_wallpaper_btn'] = custom_btn_rect
     if active_button_rect in [back_btn_rect, custom_btn_rect]:
@@ -2239,7 +2447,7 @@ def draw_settings_wallpaper_screen(surface):
 
 def draw_settings_custom_wallpaper_screen(surface):
     surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text("< بازگشت", text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
     title = render_persian_text("انتخاب تصویر", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     y_pos = 120
     clickable_rects = {'back_btn': back_btn_rect}
@@ -2265,7 +2473,7 @@ def draw_settings_custom_wallpaper_screen(surface):
 
 def draw_settings_display_screen(surface):
     surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text("< بازگشت", text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
     title = render_persian_text("صفحه نمایش", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     dark_mode_text = render_persian_text("حالت تاریک", text_font, text_color); surface.blit(dark_mode_text, (surface.get_width() - dark_mode_text.get_width() - 30, 130))
     switch_rect = pygame.Rect(30, 120, 60, 30); switch_radius = switch_rect.height / 2
@@ -2283,7 +2491,7 @@ def draw_settings_display_screen(surface):
 def draw_settings_lock_screen_screen(surface):
     global lock_screen_preset_rects; lock_screen_preset_rects.clear()
     surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text("< بازگشت", text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
     title = render_persian_text("صفحه قفل", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     
     # رسم استایل‌های ساعت
@@ -2375,7 +2583,7 @@ def draw_settings_lock_screen_screen(surface):
 
 def draw_settings_custom_lock_wallpaper_screen(surface):
     surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text("< بازگشت", text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
     title = render_persian_text("پس‌زمینه صفحه قفل", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     y_pos = 120
     clickable_rects = {'back_btn': back_btn_rect}
@@ -2400,7 +2608,7 @@ def draw_settings_custom_lock_wallpaper_screen(surface):
 
 def draw_settings_about_screen(surface):
     draw_gradient_background(surface, HYPEROS_TOP, HYPEROS_BOTTOM)
-    back_btn_text = render_persian_text("< بازگشت", text_font, WHITE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
     title = render_persian_text("درباره", settings_title_font, WHITE); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     os_name_surf = about_font.render("ParsOS", True, WHITE)
     surface.blit(os_name_surf, os_name_surf.get_rect(center=(surface.get_width()/2, surface.get_height()/2)))
@@ -2464,7 +2672,7 @@ def draw_notes_app_screen(surface):
 
 def draw_notes_save_screen(surface):
     surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text("< بازگشت", text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
     title = render_persian_text("ذخیره یادداشت", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     input_box_rect = pygame.Rect(50, 150, surface.get_width() - 100, 40); pygame.draw.rect(surface, get_current_color('settings_button_bg'), input_box_rect, border_radius=8)
     pygame.draw.rect(surface, BLUE, input_box_rect, 2, border_radius=8)
@@ -2481,7 +2689,7 @@ def draw_notes_save_screen(surface):
 def draw_notes_open_screen(surface):
     global notes_file_list
     surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text("< بازگشت", text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
     title = render_persian_text("باز کردن یادداشت", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     notes_file_list.clear(); y_pos = 120
     clickable_rects = {'back_btn': back_btn_rect}
@@ -2712,6 +2920,7 @@ def draw_app_screen():
             elif app_page == 'lock_screen': draw_settings_lock_screen_screen(main_app_surface)
             elif app_page == 'custom_wallpaper': draw_settings_custom_wallpaper_screen(main_app_surface)
             elif app_page == 'custom_lock_wallpaper': draw_settings_custom_lock_wallpaper_screen(main_app_surface)
+            elif app_page == 'language': draw_settings_language_screen(main_app_surface) # <--- (جدید) این خط اضافه شده است
             elif app_page == 'about': draw_settings_about_screen(main_app_surface)
         elif app_name == 'notes':
             if app_page == 'notes_main': draw_notes_app_screen(main_app_surface)
@@ -2906,6 +3115,36 @@ while running:
     mouse_pos = pygame.mouse.get_pos()
     events = pygame.event.get()
     kernel.kernel_instance.update()
+    if is_language_picker_open and language_picker_progress > 0.9:
+        for event in events: # رویدادها را جداگانه پردازش می‌کنیم
+            if event.type == pygame.QUIT: running = False
+            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                temp_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+                lang_buttons = draw_language_picker(temp_surf, 1.0) # رسم برای گرفتن rects
+
+                clicked_inside_button = False
+                for key, rect in lang_buttons.items():
+                    if rect.collidepoint(event.pos):
+                        lang_code = key.split('_')[1]
+                        if lang_code != current_language:
+                            current_language = lang_code
+                            # (نام نمایشی در load_language_data به‌روز می‌شود)
+                            save_settings()
+                            load_language_data() # (مهم) بارگذاری مجدد دیکشنری زبان
+
+                        is_language_picker_open = False
+                        clicked_inside_button = True
+                        break
+
+                if not clicked_inside_button:
+                    # اگر روی دکمه‌ای کلیک نشده بود، مودال را ببند
+                    is_language_picker_open = False
+
+                # این رویداد پردازش شد، آن را از لیست اصلی حذف کن
+                events.remove(event)
+                # از آنجایی که لیست رویدادها را تغییر دادیم، حلقه داخلی را بشکن
+                break
+        
     for event in events:
         if event.type == pygame.QUIT: running = False
         if event.type == MUSIC_ENDED: play_next_song()
@@ -3009,10 +3248,19 @@ while running:
 
         if event.type == pygame.MOUSEMOTION:
             if is_dragging_control_center and event.pos[1] > 80:
-                is_control_center_open = True
-                is_dragging_control_center = False
-                snapshot = screen.copy()
-                control_center_snapshot = apply_gaussian_blur(snapshot, iterations=15)
+                # (جدید) بررسی می‌کنیم که آیا از قبل باز نشده یا در حال پردازش نیست
+                if not is_control_center_open and not is_blur_processing:
+                    is_control_center_open = True
+                    is_dragging_control_center = False
+                    is_blur_processing = True # (قفل کردن برای جلوگیری از اجرای مجدد)
+                    snapshot = screen.copy()
+                    
+                    # (جدید) به جای اجرای مستقیم، آن را به نخ می‌سپاریم
+                    thread = threading.Thread(target=process_blur_in_thread, args=(snapshot,))
+                    thread.start()
+                    
+                    # (مهم) اسنپ‌شات را پاک می‌کنیم تا بعداً از نتیجه نخ استفاده شود
+                    control_center_snapshot = None
             elif is_dragging_notification_center and event.pos[1] > 80:
                 is_notification_center_open = True
                 is_dragging_notification_center = False
@@ -3285,6 +3533,7 @@ while running:
                         elif app_page == 'lock_screen': buttons = draw_settings_lock_screen_screen(temp_surf)
                         elif app_page == 'custom_wallpaper': buttons = draw_settings_custom_wallpaper_screen(temp_surf)
                         elif app_page == 'custom_lock_wallpaper': buttons = draw_settings_custom_lock_wallpaper_screen(temp_surf)
+                        elif app_page == 'language': buttons = draw_settings_language_screen(temp_surf)
                         elif app_page == 'about': buttons = draw_settings_about_screen(temp_surf)
                     elif app_name == 'notes':
                         if app_page == 'notes_main': buttons = draw_notes_app_screen(temp_surf)
@@ -3393,11 +3642,42 @@ while running:
                             elif active_button_key == 'display_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': draw_settings_main_screen, 'animation_callback': lambda: app_context.update({'screen': 'display'})})
                             elif active_button_key == 'lock_screen_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': draw_settings_main_screen, 'animation_callback': lambda: app_context.update({'screen': 'lock_screen'})})
                             elif active_button_key == 'about_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': draw_settings_main_screen, 'animation_callback': lambda: app_context.update({'screen': 'about'})})
+                            elif active_button_key == 'lang_btn': 
+                                app_screen_animation_direction = 1
+                                app_context.update({'old_screen_draw_func': draw_settings_main_screen, 'animation_callback': lambda: app_context.update({'screen': 'language'})})
+                            elif active_button_key == 'about_btn': 
+                                app_screen_animation_direction = 1
+                                app_context.update({'old_screen_draw_func': draw_settings_main_screen, 'animation_callback': lambda: app_context.update({'screen': 'about'})})
+                        elif app_page == 'language':
+                            if active_button_key == 'back_btn':
+                                app_screen_animation_direction = -1
+                                app_context.update({'old_screen_draw_func': draw_settings_language_screen, 'animation_callback': lambda: app_context.update({'screen': 'main'})})
+                            elif active_button_key == 'select_lang_btn':
+                                # (جدید) باز کردن مودال انتخاب زبان
+                                is_language_picker_open = True
+                                snapshot = screen.copy()
+                                language_picker_blurred_bg = apply_gaussian_blur(snapshot)
                         elif app_page in ['wallpaper', 'display', 'lock_screen', 'custom_wallpaper', 'custom_lock_wallpaper', 'about']:
-                            old_func_name = f'draw_settings_{app_page}_screen'; target_screen = 'main'
+                        # (اصلاح شده) منطق بازگشت برای پشتیبانی از صفحه زبان
+                            old_func_name_map = {
+                                'wallpaper': draw_settings_wallpaper_screen,
+                                'display': draw_settings_display_screen,
+                                'lock_screen': draw_settings_lock_screen_screen,
+                                'custom_wallpaper': draw_settings_custom_wallpaper_screen,
+                                'custom_lock_wallpaper': draw_settings_custom_lock_wallpaper_screen,
+                                'about': draw_settings_about_screen,
+                            }
+                            # (توجه: صفحه 'language' در بالا مدیریت شد)
+                            old_func = old_func_name_map.get(app_page, draw_settings_main_screen)
+
+                            target_screen = 'main'
                             if app_page == 'custom_wallpaper': target_screen = 'wallpaper'
                             if app_page == 'custom_lock_wallpaper': target_screen = 'lock_screen'
-                            if active_button_key == 'back_btn': app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': globals()[old_func_name], 'animation_callback': lambda: app_context.update({'screen': target_screen})})
+
+                            if active_button_key == 'back_btn': 
+                                app_screen_animation_direction = -1
+                                # (اصلاح شده) استفاده از lambda برای تعیین صفحه مقصد
+                                app_context.update({'old_screen_draw_func': old_func, 'animation_callback': (lambda s=target_screen: lambda: app_context.update({'screen': s}))() })
                             if app_page == 'wallpaper':
                                 if active_button_key.startswith('preset_'):
                                     i = int(active_button_key.split('_')[1]); saved_light_wallpaper_top, saved_light_wallpaper_bottom = wallpaper_presets[i]
@@ -3467,6 +3747,14 @@ while running:
     # --------------------------
     #      منطق و به‌روزرسانی وضعیت
     # --------------------------
+
+    if is_language_picker_open and language_picker_progress < 1.0:
+        language_picker_progress = min(1.0, language_picker_progress + 0.08)
+    elif not is_language_picker_open and language_picker_progress > 0.0:
+        language_picker_progress = max(0.0, language_picker_progress - 0.08)
+        if language_picker_progress <= 0.0:
+            language_picker_blurred_bg = None
+        
     if current_screen == "app_open" and app_context.get('is_external_app'):
         app_instance = running_app_instances.get(app_context['app_id'])
         if app_instance:
@@ -3538,10 +3826,21 @@ while running:
     if is_low_battery_warning_visible and low_battery_warning_progress < 1.0: low_battery_warning_progress = min(1.0, low_battery_warning_progress + 0.06)
     elif not is_low_battery_warning_visible and low_battery_warning_progress > 0.0: low_battery_warning_progress = max(0.0, low_battery_warning_progress - 0.06)
 
-    if is_control_center_open and control_center_progress < 1.0: control_center_progress = min(1.0, control_center_progress + 0.06)
+    # (جدید) بررسی می‌کنیم آیا نخ بلور کارش تمام شده است
+    if blur_thread_result is not None:
+        control_center_snapshot = blur_thread_result # نتیجه را اعمال کن
+        blur_thread_result = None # نتیجه را پاک کن تا دوباره بررسی نشود
+
+    if is_control_center_open and control_center_progress < 1.0: 
+        control_center_progress = min(1.0, control_center_progress + 0.06)
     elif not is_control_center_open and control_center_progress > 0.0:
         control_center_progress = max(0.0, control_center_progress - 0.06)
-        if control_center_progress <= 0.0: control_center_snapshot = None
+        if control_center_progress <= 0.0: 
+            control_center_snapshot = None
+            # (مهم) حالا که پنل بسته شد، اجازه می‌دهیم بلور بعدی انجام شود
+            if is_blur_processing: 
+                # (اگر کاربر پنل را قبل از اتمام بلور ببندد، این متغیر ریست نمی‌شود)
+                is_blur_processing = False
 
     if is_notification_center_open and notification_center_progress < 1.0: notification_center_progress = min(1.0, notification_center_progress + 0.06)
     elif not is_notification_center_open and notification_center_progress > 0.0:
@@ -3871,6 +4170,9 @@ while running:
 
     draw_heads_up_notification(screen)
     draw_unimportant_notifications(screen)
+
+    if language_picker_progress > 0:
+        draw_language_picker(screen, language_picker_progress)
 
     pygame.display.flip()
     clock.tick(90)
