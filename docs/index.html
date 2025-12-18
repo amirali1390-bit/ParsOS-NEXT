@@ -26,6 +26,7 @@
       --btn-secondary-bg: var(--glass-bg);
       --btn-secondary-text: var(--text-color);
       --btn-secondary-hover: var(--glass-hover);
+      --yalda-red: #d32f2f;
     }
 
     body[data-theme="dark"] {
@@ -33,9 +34,9 @@
       --bg-gradient: linear-gradient(-45deg, #0f172a, #1e293b, #1a1a2e, #2a2a4a);
       --text-color: #e5e7eb;
       --text-color-light: #9ca3af;
-      --accent-color: #fde047; /* کمی روشن‌تر برای کنتراست بهتر */
+      --accent-color: #fde047;
       --accent-color-dark: #000;
-      --glass-bg: rgba(30, 41, 59, 0.4); /* شیشه تیره‌تر */
+      --glass-bg: rgba(30, 41, 59, 0.4);
       --glass-border: rgba(255, 255, 255, 0.1);
       --glass-hover: rgba(30, 41, 59, 0.7);
       --shadow-color: rgba(0, 0, 0, 0.2);
@@ -69,7 +70,6 @@
       overflow-x: hidden;
     }
     
-    /* تنظیم جهت بر اساس زبان */
     html[lang="ar"] body,
     html[lang="fa"] body,
     html[lang="tr"] body {
@@ -148,12 +148,11 @@
 
     .github-link {
       text-align: center;
-      margin: 2rem 0; /* کاهش فاصله برای دکمه‌های جدید */
+      margin: 2rem 0;
       opacity: 0;
       animation: fadeIn 1s ease-in 1.8s forwards;
     }
 
-    /* --- دکمه‌های دانلود و مشاهده --- */
     .action-buttons {
       display: flex;
       justify-content: center;
@@ -226,15 +225,14 @@
       color: var(--text-color);
     }
 
-    /* --- منوی تنظیمات گوشه صفحه --- */
+    /* --- منوی تنظیمات --- */
     .settings-container {
       position: fixed;
       top: 20px;
-      right: 20px; /* پیش‌فرض برای LTR */
+      right: 20px;
       z-index: 1000;
     }
     
-    /* جابجایی منو برای زبان‌های RTL */
     html[lang="ar"] .settings-container,
     html[lang="fa"] .settings-container,
     html[lang="tr"] .settings-container {
@@ -267,7 +265,7 @@
     .settings-dropdown {
       position: absolute;
       top: calc(100% + 10px);
-      right: 0; /* پیش‌فرض برای LTR */
+      right: 0;
       width: 220px;
       background: var(--glass-bg);
       backdrop-filter: blur(10px);
@@ -282,7 +280,6 @@
       transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
     
-    /* جابجایی منو برای زبان‌های RTL */
     html[lang="ar"] .settings-dropdown,
     html[lang="fa"] .settings-dropdown,
     html[lang="tr"] .settings-dropdown {
@@ -313,12 +310,8 @@
     .settings-dropdown-item:hover {
       background: var(--glass-hover);
     }
-    
-    .settings-dropdown-item span {
-      font-size: 0.95rem;
-    }
 
-    /* --- استایل سوییچ حالت تاریک --- */
+    /* --- سوییچ حالت تاریک --- */
     .dark-mode-switch {
       position: relative;
       display: inline-block;
@@ -364,28 +357,26 @@
       transform: translateX(22px);
     }
 
-    /* --- مدال (Modal) انتخاب زبان --- */
-    #language-modal {
+    /* --- مدال‌ها (زبان و یلدا) --- */
+    .modal-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       z-index: 2000;
       display: flex;
       justify-content: center;
       align-items: center;
-      
-      /* انیمیشن محو شدن نرم */
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.3s ease;
     }
     
-    #language-modal.modal-visible {
+    .modal-overlay.modal-visible {
       opacity: 1;
       visibility: visible;
     }
@@ -399,13 +390,12 @@
       max-width: 500px;
       box-shadow: 0 10px 40px var(--shadow-color-hover);
       position: relative;
-
-      /* انیمیشن نرم باز شدن باکس */
       transform: scale(0.9);
       transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      text-align: center;
     }
     
-    #language-modal.modal-visible .modal-content {
+    .modal-overlay.modal-visible .modal-content {
       transform: scale(1);
     }
 
@@ -417,17 +407,38 @@
       color: var(--text-color);
       cursor: pointer;
       transition: transform 0.2s ease, color 0.2s ease;
+      z-index: 10;
     }
+
+    html[lang="fa"] .modal-close, html[lang="ar"] .modal-close {
+        right: auto;
+        left: 15px;
+    }
+
     .modal-close:hover {
       transform: scale(1.2);
       color: var(--accent-color);
     }
-    
-    .modal-title {
-      text-align: center;
-      margin-top: 0;
-      margin-bottom: 2rem;
-      font-size: 1.5rem;
+
+    /* --- استایل اختصاصی یلدا --- */
+    .yalda-modal-content {
+        background: linear-gradient(135deg, #1a472a 0%, #d32f2f 100%) !important;
+        border: 2px solid #ffd700 !important;
+    }
+    .yalda-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        display: block;
+    }
+    .yalda-title {
+        color: #ffd700;
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+    .yalda-text {
+        font-size: 1.2rem;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
     }
 
     .language-grid {
@@ -445,7 +456,6 @@
       font-family: 'Vazirmatn', sans-serif;
       font-size: 1rem;
       cursor: pointer;
-      text-align: center;
       transition: all 0.3s ease;
     }
     
@@ -453,78 +463,28 @@
       background: var(--accent-color);
       color: var(--accent-color-dark);
       transform: translateY(-3px);
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
     }
 
 
-    /* --- کی‌فریم‌های انیمیشن --- */
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    @keyframes featureFadeIn {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes gradientBG {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
+    /* --- انیمیشن‌ها --- */
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes featureFadeIn { to { opacity: 1; transform: translateY(0); } }
+    @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
 
     /* --- رسپانسیو --- */
     @media (max-width: 600px) {
-      .container {
-        padding: 1rem;
-      }
       h1 { font-size: 2.2rem; }
-      p { font-size: 1.1rem; }
       .feature { width: 90%; }
-      .language-grid {
-        grid-template-columns: 1fr;
-      }
-      .modal-content {
-        width: 95%;
-        padding: 1.5rem;
-      }
-      .settings-container {
-        top: 15px;
-        right: 15px;
-      }
-      html[lang="ar"] .settings-container,
-      html[lang="fa"] .settings-container,
-      html[lang="tr"] .settings-container {
-        right: auto;
-        left: 15px;
-      }
-      .action-buttons {
-        gap: 0.75rem;
-      }
-      .action-button {
-        font-size: 1rem;
-        padding: 0.7rem 1.5rem;
-        width: 100%; /* دکمه‌ها در موبایل تمام عرض شوند */
-        box-sizing: border-box; /* برای پدینگ صحیح */
-        text-align: center;
-      }
+      .language-grid { grid-template-columns: 1fr; }
+      .action-button { width: 100%; }
     }
   </style>
 </head>
 <body>
 
   <div class="settings-container">
-    <button class="settings-menu-toggle" id="settings-toggle-btn" aria-label="Settings Menu">
-      ⚙️
-    </button>
+    <button class="settings-menu-toggle" id="settings-toggle-btn" aria-label="Settings Menu">⚙️</button>
     <div class="settings-dropdown" id="settings-dropdown-menu">
       <div class="settings-dropdown-item" id="lang-modal-open">
         <span data-key="lang-menu">🌐 تغییر زبان</span>
@@ -540,9 +500,9 @@
     </div>
   </div>
 
-  <div id="language-modal">
+  <div id="language-modal" class="modal-overlay">
     <div class="modal-content">
-      <span class="modal-close" id="modal-close-btn">&times;</span>
+      <span class="modal-close" id="lang-modal-close">&times;</span>
       <h2 class="modal-title" data-key="modal-title">زبان خود را انتخاب کنید</h2>
       <div class="language-grid">
         <button class="lang-button" onclick="setLang('fa')">فارسی</button>
@@ -559,14 +519,23 @@
     </div>
   </div>
 
+  <div id="yalda-modal" class="modal-overlay">
+    <div class="modal-content yalda-modal-content">
+      <span class="modal-close" id="yalda-modal-close">&times;</span>
+      <span class="yalda-icon">🍉</span>
+      <h2 class="yalda-title" data-key="yalda-title">شب یلدا مبارک</h2>
+      <p class="yalda-text" data-key="yalda-desc">یلدا، بهانه‌ای برای با هم بودن در طولانی‌ترین شب سال. لحظاتتان شاد و شیرین!</p>
+      <button class="action-button primary" id="yalda-ok-btn">❤️</button>
+    </div>
+  </div>
+
   <div class="container">
     <header>
       <h1 id="title">ParsOS NEXT</h1>
       <p id="description" data-key="description">شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame</p>
     </header>
 
-    <section class="features" id="features">
-      </section>
+    <section class="features" id="features"></section>
 
     <div class="github-link">
       <a class="github-button" 
@@ -580,17 +549,12 @@
     <div class="action-buttons">
       <a href="https://github.com/amirali1390-bit/ParsOS-NEXT/archive/refs/heads/main.zip" 
          class="action-button primary" 
-         data-key="btn-download">
-         دانلود مستقیم
-      </a>
+         data-key="btn-download">دانلود مستقیم</a>
       <a href="https://github.com/amirali1390-bit/ParsOS-NEXT" 
          target="_blank" 
          class="action-button secondary"
-         data-key="btn-view">
-         مشاهده پروژه
-      </a>
+         data-key="btn-view">مشاهده پروژه</a>
     </div>
-
   </div>
 
   <footer>
@@ -599,173 +563,140 @@
   </footer>
 
   <script>
-    // آبجکت ترجمه‌ها گسترش یافته است
     const translations = {
       en: {
         "description": "A powerful mobile OS simulator built with Python and Pygame",
         "features": ["🎮 Smooth animations", "📱 App management", "🔔 Notification center", "🧊 Glass & blur effects", "🌌 Lock screen depth effect"],
-        "lang-menu": "🌐 Change Language",
-        "dark-mode": "Dark Mode 🌙",
-        "modal-title": "Choose Your Language",
-        "btn-download": "Direct Download",
-        "btn-view": "View Project",
-        "footer-made-by": "Made by"
+        "lang-menu": "🌐 Change Language", "dark-mode": "Dark Mode 🌙", "modal-title": "Choose Your Language",
+        "btn-download": "Direct Download", "btn-view": "View Project", "footer-made-by": "Made by",
+        "yalda-title": "Happy Yalda Night!", "yalda-desc": "Wishing you a night full of warmth, laughter, and sweetness on the longest night of the year."
       },
       fa: {
         "description": "شبیه‌ساز قدرتمند سیستم‌عامل موبایل با استفاده از Python و Pygame",
         "features": ["🎮 انیمیشن‌های روان", "📱 مدیریت برنامه‌ها", "🔔 مرکز اعلان‌ها", "🧊 افکت‌های شیشه‌ای و بلور", "🌌 جلوه عمق برای صفحه قفل"],
-        "lang-menu": "🌐 تغییر زبان",
-        "dark-mode": " حالت تاریک 🌙",
-        "modal-title": "زبان خود را انتخاب کنید",
-        "btn-download": "دانلود مستقیم",
-        "btn-view": "مشاهده پروژه",
-        "footer-made-by": "ساخته شده توسط"
+        "lang-menu": "🌐 تغییر زبان", "dark-mode": " حالت تاریک 🌙", "modal-title": "زبان خود را انتخاب کنید",
+        "btn-download": "دانلود مستقیم", "btn-view": "مشاهده پروژه", "footer-made-by": "ساخته شده توسط",
+        "yalda-title": "شب یلدا مبارک!", "yalda-desc": "یلدا، بهانه‌ای برای با هم بودن در طولانی‌ترین شب سال. لحظاتتان شاد و شیرین!"
       },
       ar: {
         "description": "محاكي نظام تشغيل الهاتف المحمول باستخدام Python و Pygame",
         "features": ["🎮 رسوم متحركة سلسة", "📱 إدارة التطبيقات", "🔔 مركز الإشعارات", "🧊 تأثيرات زجاجية وضبابية", "🌌 تأثير العمق لشاشة القفل"],
-        "lang-menu": "🌐 تغيير اللغة",
-        "dark-mode": "الوضع الداكن 🌙",
-        "modal-title": "اختر لغتك",
-        "btn-download": "تحميل مباشر",
-        "btn-view": "عرض المشروع",
-        "footer-made-by": "صنع بواسطة"
+        "lang-menu": "🌐 تغيير اللغة", "dark-mode": "الوضع الداكن 🌙", "modal-title": "اختر لغتك",
+        "btn-download": "تحميل مباشر", "btn-view": "عرض المشروع", "footer-made-by": "صنع بواسطة",
+        "yalda-title": "ليلة يلدا سعيدة!", "yalda-desc": "نتمنى لكم ليلة مليئة بالدفء والضحك والجمال في أطول ليلة في السنة."
       },
       ru: {
         "description": "Мощный симулятор мобильной ОС на Python и Pygame",
         "features": ["🎮 Плавная анимация", "📱 Управление приложениями", "🔔 Центр уведомлений", "🧊 Эффекты стекла и размытия", "🌌 Эффект глубины экрана блокировки"],
-        "lang-menu": "🌐 Изменить язык",
-        "dark-mode": "Темный режим 🌙",
-        "modal-title": "Выберите ваш язык",
-        "btn-download": "Прямая загрузка",
-        "btn-view": "Посмотреть проект",
-        "footer-made-by": "Сделано"
+        "lang-menu": "🌐 Изменить язык", "dark-mode": "Темный режим 🌙", "modal-title": "Выберите ваш язык",
+        "btn-download": "Прямая загрузка", "btn-view": "Посмотреть проект", "footer-made-by": "Сделано",
+        "yalda-title": "С праздником Ялда!", "yalda-desc": "Желаем вам ночи, полной тепла и радости, в самую длинную ночь в году."
       },
       zh: {
         "description": "使用 Python 和 Pygame 构建的强大移动操作系统模拟器",
         "features": ["🎮 流畅动画", "📱 应用管理", "🔔 通知中心", "🧊 玻璃和模糊效果", "🌌 锁屏深度效果"],
-        "lang-menu": "🌐 改变语言",
-        "dark-mode": "黑暗模式 🌙",
-        "modal-title": "选择你的语言",
-        "btn-download": "直接下载",
-        "btn-view": "查看项目",
-        "footer-made-by": "由...制作"
+        "lang-menu": "🌐 改变语言", "dark-mode": "黑暗模式 🌙", "modal-title": "选择你的语言",
+        "btn-download": "直接下载", "btn-view": "查看项目", "footer-made-by": "由...制作",
+        "yalda-title": "雅尔达之夜快乐！", "yalda-desc": "在这一年中最长的夜晚，祝您度过一个充满温暖和甜蜜的夜晚。"
       },
       hi: {
         "description": "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
-        "features": ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"],
-        "lang-menu": "🌐 भाषा बदलें",
-        "dark-mode": "डार्क मोड 🌙",
-        "modal-title": "अपनी भाषा चुनें",
-        "btn-download": "सीधा डाउनलोड",
-        "btn-view": "परियोजना देखें",
-        "footer-made-by": "द्वारा बनाया गया"
+        "features": ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्ث इफेक्ट"],
+        "lang-menu": "🌐 भाषा बदलें", "dark-mode": "डार्क मोड 🌙", "modal-title": "अपनी भाषा चुनें",
+        "btn-download": "सीधा डाउनलोड", "btn-view": "परियोजना देखें", "footer-made-by": "द्वारा बनाया गया",
+        "yalda-title": "हैप्पी यल्दा नाइट!", "yalda-desc": "साल की सबसे लंबी रात पर आपको गर्मजोशी और खुशियों भरी रात की शुभकामनाएं।"
       },
       es: {
         "description": "Un potente simulador de sistema operativo móvil creado con Python y Pygame",
         "features": ["🎮 Animaciones fluidas", "📱 Gestión de aplicaciones", "🔔 Centro de notificaciones", "🧊 Efectos de cristal y desenfoque", "🌌 Efecto de profundidad en pantalla de bloqueo"],
-        "lang-menu": "🌐 Cambiar idioma",
-        "dark-mode": "Modo oscuro 🌙",
-        "modal-title": "Elige tu idioma",
-        "btn-download": "Descarga directa",
-        "btn-view": "Ver proyecto",
-        "footer-made-by": "Hecho por"
+        "lang-menu": "🌐 Cambiar idioma", "dark-mode": "Modo oscuro 🌙", "modal-title": "Elige tu idioma",
+        "btn-download": "Descarga directa", "btn-view": "Ver proyecto", "footer-made-by": "Hecho por",
+        "yalda-title": "¡Feliz Noche de Yalda!", "yalda-desc": "Te deseamos una noche llena de calidez y dulzura en la noche más larga del año."
       },
       fr: {
         "description": "Un puissant simulateur de système d'exploitation mobile conçu avec Python et Pygame",
         "features": ["🎮 Animations fluides", "📱 Gestion des applications", "🔔 Centre de notifications", "🧊 Effets de verre et de flou", "🌌 Effet de profondeur sur l'écran de verrouillage"],
-        "lang-menu": "🌐 Changer de langue",
-        "dark-mode": "Mode sombre 🌙",
-        "modal-title": "Choisissez votre langue",
-        "btn-download": "Téléchargement direct",
-        "btn-view": "Voir le projet",
-        "footer-made-by": "Fait par"
+        "lang-menu": "🌐 Changer de langue", "dark-mode": "Mode sombre 🌙", "modal-title": "Choisissez votre langue",
+        "btn-download": "Téléchargement direct", "btn-view": "Voir le projet", "footer-made-by": "Fait par",
+        "yalda-title": "Joyeuse nuit de Yalda !", "yalda-desc": "Nous vous souhaitons une nuit pleine de chaleur et de douceur pour la plus longue nuit de l'année."
       },
       tr: {
         "description": "Python ve Pygame ile oluşturulmuş güçlü bir mobil işletim sistemi simülatörü",
         "features": ["🎮 Akıcı animasyonlar", "📱 Uygulama yönetimi", "🔔 Bildirim merkezi", "🧊 Cam ve bulanıklık efektleri", "🌌 Kilit ekranı derinlik efekti"],
-        "lang-menu": "🌐 Dili değiştir",
-        "dark-mode": "Karanlık Mod 🌙",
-        "modal-title": "Dilinizi seçin",
-        "btn-download": "Doğrudan İndir",
-        "btn-view": "Projeyi Görüntüle",
-        "footer-made-by": "Yapan"
+        "lang-menu": "🌐 Dili değiştir", "dark-mode": "Karanlık Mod 🌙", "modal-title": "Dilinizi seçin",
+        "btn-download": "Doğrudan İndir", "btn-view": "Projeyi Görüntüle", "footer-made-by": "Yapan",
+        "yalda-title": "Yalda Geceniz Kutlu Olsun!", "yalda-desc": "Yılın en uzun gecesinde size sıcaklık ve mutluluk dolu bir gece dileriz."
       },
       it: {
         "description": "Un potente simulatore di sistema operativo mobile costruito con Python e Pygame",
         "features": ["🎮 Animazioni fluide", "📱 Gestione app", "🔔 Centro notifiche", "🧊 Effetti vetro e sfocatura", "🌌 Effetto profondità blocco schermo"],
-        "lang-menu": "🌐 Cambia lingua",
-        "dark-mode": "Modalità scura 🌙",
-        "modal-title": "Scegli la tua lingua",
-        "btn-download": "Download diretto",
-        "btn-view": "Vedi progetto",
-        "footer-made-by": "Creato da"
+        "lang-menu": "🌐 Cambia lingua", "dark-mode": "Modalità scura 🌙", "modal-title": "Scegli la tua lingua",
+        "btn-download": "Download diretto", "btn-view": "Vedi progetto", "footer-made-by": "Creato da",
+        "yalda-title": "Buona notte di Yalda!", "yalda-desc": "Ti auguriamo una notte piena di calore e dolcezza nella notte più lunga dell'anno."
       }
     };
-    
-    // --- عناصر DOM ---
+
     const settingsToggle = document.getElementById('settings-toggle-btn');
     const settingsDropdown = document.getElementById('settings-dropdown-menu');
     const darkModeToggle = document.getElementById('dark-mode-toggle');
     const languageModal = document.getElementById('language-modal');
     const openModalBtn = document.getElementById('lang-modal-open');
-    const closeModalBtn = document.getElementById('modal-close-btn');
+    const langModalClose = document.getElementById('lang-modal-close');
+    const yaldaModal = document.getElementById('yalda-modal');
+    const yaldaModalClose = document.getElementById('yalda-modal-close');
+    const yaldaOkBtn = document.getElementById('yalda-ok-btn');
 
-    // --- مدیریت منوی تنظیمات ---
-    settingsToggle.addEventListener('click', (e) => {
-      e.stopPropagation(); 
-      settingsDropdown.classList.toggle('active');
-    });
+    // مدیریت تنظیمات
+    settingsToggle.addEventListener('click', (e) => { e.stopPropagation(); settingsDropdown.classList.toggle('active'); });
+    window.addEventListener('click', (e) => { if (!settingsDropdown.contains(e.target) && !settingsToggle.contains(e.target)) settingsDropdown.classList.remove('active'); });
 
-    window.addEventListener('click', (e) => {
-      if (!settingsDropdown.contains(e.target) && !settingsToggle.contains(e.target)) {
-        settingsDropdown.classList.remove('active');
-      }
-    });
-
-    // --- مدیریت حالت تاریک ---
+    // مدیریت حالت تاریک
     function setDarkMode(isDark) {
       const theme = isDark ? 'dark' : 'light';
       document.body.setAttribute('data-theme', theme);
       localStorage.setItem('theme', theme);
       darkModeToggle.checked = isDark;
     }
+    darkModeToggle.addEventListener('change', () => setDarkMode(darkModeToggle.checked));
 
-    darkModeToggle.addEventListener('change', () => {
-      setDarkMode(darkModeToggle.checked);
-    });
+    // مدیریت مدال زبان
+    openModalBtn.addEventListener('click', () => { languageModal.classList.add('modal-visible'); settingsDropdown.classList.remove('active'); });
+    langModalClose.addEventListener('click', () => languageModal.classList.remove('modal-visible'));
 
-    // --- مدیریت مدال زبان ---
-    openModalBtn.addEventListener('click', () => {
-      languageModal.classList.add('modal-visible');
-      settingsDropdown.classList.remove('active'); // بستن منوی تنظیمات
-    });
+    // --- منطق تبریک یلدا ---
+    function checkYalda() {
+        const now = new Date();
+        const month = now.getMonth() + 1; // دی = 12، آذر = 12 (در میلادی دسامبر)
+        const day = now.getDate();
+        
+        // شب یلدا معمولاً 21 دسامبر است (30 آذر)
+        // نمایش از 5 روز مانده (16 دسامبر) تا خود 21 دسامبر
+        const isYaldaPeriod = (month === 12 && day >= 16 && day <= 21);
+        const hasSeenYalda = localStorage.getItem('yalda_dismissed_2025');
 
-    closeModalBtn.addEventListener('click', () => {
-      languageModal.classList.remove('modal-visible');
-    });
+        if (isYaldaPeriod && !hasSeenYalda) {
+            setTimeout(() => {
+                yaldaModal.classList.add('modal-visible');
+            }, 2000); // 2 ثانیه بعد از لود شدن نمایش بده
+        }
+    }
 
-    languageModal.addEventListener('click', (e) => {
-      if (e.target === languageModal) {
-        languageModal.classList.remove('modal-visible');
-      }
-    });
+    const closeYalda = () => {
+        yaldaModal.classList.remove('modal-visible');
+        localStorage.setItem('yalda_dismissed_2025', 'true');
+    };
 
-    // --- تابع تغییر زبان (بهبود یافته) ---
+    yaldaModalClose.addEventListener('click', closeYalda);
+    yaldaOkBtn.addEventListener('click', closeYalda);
+    yaldaModal.addEventListener('click', (e) => { if (e.target === yaldaModal) closeYalda(); });
+
+    // تابع تغییر زبان
     function setLang(lang) {
-      if (!translations[lang]) {
-        console.warn(`Language "${lang}" not found. Defaulting to 'fa'.`);
-        lang = 'fa';
-      }
-
-      // 1. تغییر زبان سند (برای اعمال CSS direction)
+      if (!translations[lang]) lang = 'fa';
       document.documentElement.lang = lang;
-
-      // 2. ترجمه تمام عناصر دارای data-key
       document.querySelectorAll('[data-key]').forEach(elem => {
         const key = elem.dataset.key;
         if (translations[lang][key]) {
-          // اگر عنصر فوتر است، باید لینک را حفظ کنیم
           if (key === 'footer-made-by') {
             elem.innerHTML = `${translations[lang][key]} <a href="https://github.com/amirali1390-bit" target="_blank">amirali1390-bit</a>`;
           } else {
@@ -774,10 +705,8 @@
         }
       });
       
-      // 3. بازسازی کارت‌های ویژگی‌ها (برای اجرای مجدد انیمیشن)
       const features = document.getElementById("features");
-      features.innerHTML = ""; // خالی کردن کارت‌های قبلی
-      
+      features.innerHTML = "";
       translations[lang].features.forEach(f => {
         const div = document.createElement("div");
         div.className = "feature";
@@ -785,42 +714,20 @@
         features.appendChild(div);
       });
 
-      // 4. ذخیره زبان انتخابی
       localStorage.setItem('language', lang);
-      
-      // 5. بستن مدال (اگر باز بود)
       languageModal.classList.remove('modal-visible');
     }
-    
-    // --- بارگذاری اولیه صفحه ---
+
     document.addEventListener('DOMContentLoaded', () => {
-      // 1. اعمال تم ذخیره شده
       const savedTheme = localStorage.getItem('theme');
-      // بررسی تم پیش‌فرض سیستم کاربر اگر تمی ذخیره نشده بود
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      
-      if (savedTheme) {
-        setDarkMode(savedTheme === 'dark');
-      } else {
-        setDarkMode(prefersDark); // اعمال تم بر اساس تنظیمات سیستم
-      }
+      setDarkMode(savedTheme ? (savedTheme === 'dark') : (window.matchMedia('(prefers-color-scheme: dark)').matches));
 
-      // 2. اعمال زبان ذخیره شده یا تشخیص خودکار
       const savedLang = localStorage.getItem('language');
-      const userLang = navigator.language.split('-')[0]; // 'fa-IR' -> 'fa'
-      const defaultLang = 'fa';
+      const userLang = navigator.language.split('-')[0];
+      setLang(savedLang || (translations[userLang] ? userLang : 'fa'));
       
-      let langToSet = defaultLang;
-      
-      if (savedLang) {
-        langToSet = savedLang; // اولویت با زبان ذخیره شده کاربر
-      } else if (translations[userLang]) {
-        langToSet = userLang; // اگر زبان مرورگر پشتیبانی می‌شود
-      }
-      
-      setLang(langToSet); // اعمال زبان
+      checkYalda(); // چک کردن زمان برای تبریک یلدا
     });
-
   </script>
 </body>
 </html>
