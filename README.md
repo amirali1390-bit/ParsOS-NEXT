@@ -3,11 +3,14 @@
 **English** | [**فارسی (Persian)**](./README.fa.md)
 
 </div>
+<img width="500" height="500" alt="photo_2025-12-18_17-44-47-removebg-preview" src="https://github.com/user-attachments/assets/3f8c5295-f54a-4063-bed2-fa2cca52434d" />
 
 # 🚀 ParsOS NEXT
 
 This is a complete mobile OS simulator built using Python and Pygame.
-This project features smooth animations, app management, a control center, notification center, glass blur effects, and even a Depth Effect for the lock screen.
+This project features smooth animations, app management, a control center, notification center, glass blur effects, and even a Depth Effect for the lock screen. 
+
+<img width="499" height="911" alt="Home screen" src="https://github.com/user-attachments/assets/9c462b59-c1a3-4712-b221-a85ff9401768" />
 
 ## 🏁 Getting Started
 
