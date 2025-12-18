@@ -601,7 +601,7 @@
       },
       hi: {
         "description": "Python और Pygame के साथ बना शक्तिशाली मोबाइल OS सिम्युलेटर",
-        "features": ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्ث इफेक्ट"],
+        "features": ["🎮 स्मूद एनीमेशन", "📱 ऐप प्रबंधन", "🔔 नोटिफिकेशन सेंटर", "🧊 ग्लास और ब्लर इफेक्ट", "🌌 लॉक स्क्रीन डेप्थ इफेक्ट"],
         "lang-menu": "🌐 भाषा बदलें", "dark-mode": "डार्क मोड 🌙", "modal-title": "अपनी भाषा चुनें",
         "btn-download": "सीधा डाउनलोड", "btn-view": "परियोजना देखें", "footer-made-by": "द्वारा बनाया गया",
         "yalda-title": "हैप्पी यल्दा नाइट!", "yalda-desc": "साल की सबसे लंबी रात पर आपको गर्मजोशी और खुशियों भरी रात की शुभकामनाएं।"
@@ -663,27 +663,26 @@
     openModalBtn.addEventListener('click', () => { languageModal.classList.add('modal-visible'); settingsDropdown.classList.remove('active'); });
     langModalClose.addEventListener('click', () => languageModal.classList.remove('modal-visible'));
 
-    // --- منطق تبریک یلدا ---
+    // --- منطق تبریک یلدا (اصلاح شده) ---
     function checkYalda() {
         const now = new Date();
-        const month = now.getMonth() + 1; // دی = 12، آذر = 12 (در میلادی دسامبر)
+        const month = now.getMonth() + 1; 
         const day = now.getDate();
         
-        // شب یلدا معمولاً 21 دسامبر است (30 آذر)
-        // نمایش از 5 روز مانده (16 دسامبر) تا خود 21 دسامبر
+        // شب یلدا (16 تا 21 دسامبر)
         const isYaldaPeriod = (month === 12 && day >= 16 && day <= 21);
-        const hasSeenYalda = localStorage.getItem('yalda_dismissed_2025');
 
-        if (isYaldaPeriod && !hasSeenYalda) {
+        // محدودیت localStorage حذف شد تا با هر بار لود شدن نمایش داده شود
+        if (isYaldaPeriod) {
             setTimeout(() => {
                 yaldaModal.classList.add('modal-visible');
-            }, 2000); // 2 ثانیه بعد از لود شدن نمایش بده
+            }, 2000);
         }
     }
 
     const closeYalda = () => {
         yaldaModal.classList.remove('modal-visible');
-        localStorage.setItem('yalda_dismissed_2025', 'true');
+        // خط localStorage.setItem حذف شد
     };
 
     yaldaModalClose.addEventListener('click', closeYalda);
@@ -726,7 +725,7 @@
       const userLang = navigator.language.split('-')[0];
       setLang(savedLang || (translations[userLang] ? userLang : 'fa'));
       
-      checkYalda(); // چک کردن زمان برای تبریک یلدا
+      checkYalda(); 
     });
   </script>
 </body>
