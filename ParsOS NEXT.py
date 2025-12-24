@@ -17,6 +17,7 @@ import urllib.error
 import re
 import importlib.util
 import threading
+import subprocess
 
 try:
     from bs4 import BeautifulSoup
@@ -112,6 +113,11 @@ lang_dict = {} # دیکشنری کامل زبان‌ها در اینجا بار�
 is_language_picker_open = False
 language_picker_progress = 0.0 # 0.0: بسته, 1.0: باز
 language_picker_blurred_bg = None # برای پس‌زمینه تار مودال
+
+is_language_picker_open = False
+language_picker_progress = 0.0 # 0.0: بسته, 1.0: باز
+language_picker_blurred_bg = None # برای پس‌زمینه تار مودال
+language_picker_start_rect = None # (جدید) برای انیمیشن باز شدن
 
 # (جدید) لیست زبان‌های پشتیبانی شده (نام به زبان خودشان)
 SUPPORTED_LANGUAGES = {
@@ -354,6 +360,8 @@ music_playback_start_time_offset = 0.0
 current_album_art_surface = None
 MUSIC_ENDED = pygame.USEREVENT + 1
 pygame.mixer.music.set_endevent(MUSIC_ENDED)
+cached_blurred_bg = None
+last_played_track_name = ""
 
 # (جدید) متغیرهای برنامه فایل‌ها
 files_current_path = '.'  # مسیر فعلی که در حال نمایش است
@@ -372,6 +380,8 @@ is_url_input_active = False
 browser_history = ["example.com"]
 browser_history_index = 0
 browser_is_loading = False
+browser_scroll_offset = 0.0
+target_browser_scroll_offset = 0.0 # (جدید) برای اسکرول نرم
 
 # متغیرهای مرکز کنترل
 is_control_center_open = False
@@ -960,9 +970,9 @@ def parse_html_to_surfaces(html_content, max_width):
 
 def install_prs_app(prs_path):
     """
-    (نسخه اصلاح شده)
+    (نسخه اصلاح شده و نهایی)
     یک برنامه .prs را نصب یا به‌روزرسانی می‌کند.
-    اگر app_id از قبل وجود داشته باشد، فقط فایل‌ها را جایگزین کرده و نام آیکون را به‌روز می‌کند.
+    برای برنامه‌های native نیازی به main_class نیست.
     """
     global is_installing_app, icons, dock_icons
 
@@ -983,11 +993,24 @@ def install_prs_app(prs_path):
                 app_id = manifest_data.get('id')
                 app_name = manifest_data.get('name')
                 main_file = manifest_data.get('main_file')
+                # دریافت نوع برنامه (اگر نباشد پیش‌فرض integrated است)
+                app_type = manifest_data.get('type', 'integrated') 
                 main_class = manifest_data.get('main_class')
 
-                if not all([app_id, app_name, main_file, main_class]):
-                    print("Error: manifest.json is missing required fields.")
-                    add_unimportant_notification("نصب ناموفق: فایل ناقص")
+                # --- اصلاح شرط بررسی اعتبار ---
+                # اگر برنامه integrated باشد، همه فیلدها از جمله main_class اجباری هستند.
+                # اما اگر native باشد، فقط id, name و main_file کافیست.
+                is_valid = False
+                if app_type == 'native':
+                    if all([app_id, app_name, main_file]):
+                        is_valid = True
+                else: # integrated
+                    if all([app_id, app_name, main_file, main_class]):
+                        is_valid = True
+
+                if not is_valid:
+                    print(f"Error: manifest.json missing fields for type '{app_type}'.")
+                    add_unimportant_notification("نصب ناموفق: فایل مانیفست ناقص است")
                     return
 
                 # --- (بخش کلیدی جدید: بررسی به‌روزرسانی) ---
@@ -1002,23 +1025,21 @@ def install_prs_app(prs_path):
                 install_path = os.path.join('installed_apps', app_id)
                 os.makedirs(install_path, exist_ok=True)
                 
-                # استخراج فایل‌ها (در هر صورت انجام می‌شود تا فایل‌ها جایگزین شوند)
+                # استخراج فایل‌ها
                 zip_ref.extractall(install_path)
 
                 if existing_icon:
                     # --- منطق به‌روزرسانی ---
                     print(f"App '{app_id}' updating.")
-                    # به‌روزرسانی نام آیکون در صورتی که در مانیفست جدید تغییر کرده باشد
                     existing_icon['name'] = app_name
                     
-                    # (جدید) اگر برنامه در حال اجرا بود، آن را ببند تا نسخه جدید بارگذاری شود
                     if app_id in running_app_instances:
                         kernel.kernel_instance.terminate_process(app_id)
-                        if app_id in running_app_instances: # بررسی مجدد (ممکن است در صف باشد)
+                        if app_id in running_app_instances:
                             del running_app_instances[app_id]
                         print(f"Closed running instance of {app_id} for update.")
 
-                    save_layout() # ذخیره نام جدید آیکون
+                    save_layout()
                     add_unimportant_notification(f"برنامه {app_name} به‌روزرسانی شد")
 
                 else:
@@ -1042,8 +1063,6 @@ def install_prs_app(prs_path):
 
                     if not found_slot:
                         add_unimportant_notification("فضای خالی در صفحه اصلی نیست")
-                        # توجه: در این حالت فایل‌ها استخراج شده‌اند اما آیکونی وجود ندارد
-                        # می‌توان فایل‌های استخراج شده را پاک کرد، اما فعلاً آن را رها می‌کنیم
                         return
 
                     save_layout()
@@ -2342,11 +2361,14 @@ def draw_settings_language_screen(surface):
     return {'back_btn': back_btn_rect, 'select_lang_btn': select_lang_rect}
 
 # (جدید) تابع رسم پنل انتخاب زبان
+# (جدید) تابع رسم پنل انتخاب زبان
 def draw_language_picker(surface, progress):
     """
+    (نسخه اصلاح شده)
     یک پنل مودال برای انتخاب زبان رسم می‌کند.
-    progress از 0.0 تا 1.0 است.
+    انیمیشن باز شدن اکنون از دکمه‌ای که روی آن کلیک شده شروع می‌شود.
     """
+    global language_picker_start_rect
     if progress <= 0: return {} # دیکشنری خالی برای rectها برمی‌گرداند
 
     # رسم پس‌زمینه بلور شده
@@ -2357,26 +2379,37 @@ def draw_language_picker(surface, progress):
     # انیمیشن نرم (ease-out-cubic)
     ease_progress = 1 - pow(1 - progress, 3)
 
-    # محاسبه ابعاد و موقعیت پنل
-    base_width, base_height = 300, 340 # ارتفاع متناسب با 5 زبان + عنوان
-    start_scale = 0.8
-    end_scale = 1.0
+    # --- (جدید) محاسبه انیمیشن موقعیت و اندازه ---
+    # ابعاد نهایی پنل
+    end_rect = pygame.Rect(0, 0, 300, 340) 
+    end_rect.center = surface.get_rect().center
+    
+    start_rect = language_picker_start_rect
+    if start_rect is None:
+        # اگر Rect شروع تنظیم نشده بود (مثلاً در فریم اول)
+        start_rect = end_rect.copy()
 
-    current_scale = start_scale + (end_scale - start_scale) * ease_progress
-    current_width = int(base_width * current_scale)
-    current_height = int(base_height * current_scale)
-
-    panel_rect = pygame.Rect(0, 0, current_width, current_height)
-    panel_rect.center = surface.get_rect().center
+    # درون‌یابی (Interpolation) موقعیت و اندازه
+    current_x = start_rect.x + (end_rect.x - start_rect.x) * ease_progress
+    current_y = start_rect.y + (end_rect.y - start_rect.y) * ease_progress
+    current_width = start_rect.width + (end_rect.width - start_rect.width) * ease_progress
+    current_height = start_rect.height + (end_rect.height - start_rect.height) * ease_progress
+    panel_rect = pygame.Rect(current_x, current_y, current_width, current_height)
+    
+    # درون‌یابی شعاع گوشه‌ها
+    start_radius = 10 # شعاع دکمه
+    end_radius = 20   # شعاع نهایی پنل
+    current_radius = start_radius + (end_radius - start_radius) * ease_progress
+    # --- پایان بخش جدید ---
 
     # رسم بدنه پنل
     panel_surface = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
-    # استفاده از رنگ‌های تیره/روشن مودال
     bg_color = (250, 250, 250) if not is_dark_mode else (45, 45, 55)
 
     # اعمال آلفا بر اساس انیمیشن
     final_bg_color = (*bg_color, int(230 * ease_progress))
-    draw_rounded_rect(panel_surface, panel_surface.get_rect(), final_bg_color, 20)
+    # (اصلاح شده) استفاده از شعاع داینامیک
+    draw_rounded_rect(panel_surface, panel_surface.get_rect(), final_bg_color, current_radius)
 
     clickable_rects = {}
 
@@ -2395,8 +2428,11 @@ def draw_language_picker(surface, progress):
         padding = 10
 
         for lang_code, lang_name in SUPPORTED_LANGUAGES.items():
-            item_rect_local = pygame.Rect(20, y_pos, panel_rect.width - 40, item_height)
+            # (اصلاح شده) اطمینان از اینکه آیتم‌ها در پنل کوچک‌شده رسم نمی‌شوند
+            if panel_rect.width < 200: continue 
 
+            item_rect_local = pygame.Rect(20, y_pos, panel_rect.width - 40, item_height)
+            
             # رسم دکمه زبان
             lang_text_surf = render_persian_text(lang_name, text_font, text_color)
             lang_text_surf.set_alpha(content_alpha)
@@ -2407,8 +2443,6 @@ def draw_language_picker(surface, progress):
                 highlight_rect = item_rect_local.inflate(0, -4) # کمی کوچکتر
                 draw_rounded_rect(panel_surface, highlight_rect, (BLUE[0], BLUE[1], BLUE[2], int(100 * content_alpha / 255)), 10)
 
-            # (مهم) ذخیره Rect واقعی روی صفحه برای تشخیص کلیک
-            # ما Rect را نسبت به پنل داریم، باید آن را به مختصات صفحه منتقل کنیم
             screen_rect = item_rect_local.move(panel_rect.topleft)
             clickable_rects[f'lang_{lang_code}'] = screen_rect
 
@@ -2720,15 +2754,18 @@ def format_time(seconds):
     return f"{mins:02d}:{secs:02d}"
 
 def draw_music_app_screen(surface):
-    global is_music_playing, is_music_paused, music_track_name, current_track_length, current_album_art_surface, music_playback_start_time_offset, current_track_index
-    # (جدید) بررسی برای پخش فایل خاص از برنامه فایل‌ها
+    # لیست تمام متغیرهای مورد نیاز
+    global is_music_playing, is_music_paused, music_track_name, current_track_length, \
+           current_album_art_surface, music_playback_start_time_offset, current_track_index, \
+           is_scrubbing_music, music_scrub_progress, cached_blurred_bg, last_played_track_name
+
+    # --- 1. منطق پخش فایل (بدون تغییر) ---
     file_path_to_play = app_context.get('file_path')
     if file_path_to_play and os.path.exists(file_path_to_play):
         try:
-            # اگر این آهنگ در پلی‌لیست وجود دارد، به آن برو
             if file_path_to_play in music_playlist:
                 current_track_index = music_playlist.index(file_path_to_play)
-            else: # در غیر این صورت، آن را به ابتدای پلی‌لیست اضافه کن
+            else:
                 music_playlist.insert(0, file_path_to_play)
                 current_track_index = 0
 
@@ -2739,95 +2776,161 @@ def draw_music_app_screen(surface):
             is_music_playing, is_music_paused = True, False
             music_playback_start_time_offset = 0
             
-            app_context['file_path'] = None # فقط یک بار آهنگ را پخش کن
+            # وقتی آهنگ جدید پخش شد، کش پس‌زمینه را خالی کن تا دوباره ساخته شود
+            cached_blurred_bg = None 
+            app_context['file_path'] = None 
         except Exception as e:
-            music_track_name = "خطا در پخش فایل"
-            print(f"Error playing music file: {e}")
+            music_track_name = "خطا در پخش"
+            print(f"Error: {e}")
 
-    surface.fill(get_current_color('music_bg'))
-    text_color = get_current_color('music_text')
+    # --- 2. ساخت و مدیریت پس‌زمینه بلور (اصلاح شده) ---
+    screen_w, screen_h = surface.get_size()
     
-    # ... (بقیه کدهای رسم برنامه موسیقی بدون تغییر باقی می‌ماند) ...
-    cover_art_rect = pygame.Rect(0, 0, 250, 250); cover_art_rect.center = (surface.get_width() / 2, 200)
-    if current_album_art_surface:
-        draw_rounded_rect(surface, cover_art_rect.inflate(10, 10), (100, 100, 100, 50), 25)
-        scaled_art = pygame.transform.smoothscale(current_album_art_surface, cover_art_rect.size)
-        art_surf_final = pygame.Surface(cover_art_rect.size, pygame.SRCALPHA)
-        draw_rounded_rect(art_surf_final, art_surf_final.get_rect(), (255, 255, 255), 20)
-        art_surf_final.blit(scaled_art, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        surface.blit(art_surf_final, cover_art_rect.topleft)
+    # اگر نام آهنگ تغییر کرده یا کش خالی است، پس‌زمینه را بساز
+    if music_track_name != last_played_track_name or cached_blurred_bg is None:
+        last_played_track_name = music_track_name
+        
+        if current_album_art_surface:
+            try:
+                # 1. تبدیل فرمت تصویر برای جلوگیری از سیاه شدن
+                art_converted = current_album_art_surface.convert()
+                
+                # 2. کوچک کردن شدید (برای سرعت و ایجاد افکت پیکسلی/تار)
+                # از scale معمولی استفاده می‌کنیم چون سریعتر و مطمئن‌تر از smoothscale برای کوچک کردن است
+                small_bg = pygame.transform.scale(art_converted, (screen_w // 20, screen_h // 20))
+                
+                # 3. بزرگ کردن دوباره (برای نرم شدن)
+                cached_blurred_bg = pygame.transform.smoothscale(small_bg, (screen_w, screen_h))
+                
+                # 4. افزودن لایه تاریک روی خود تصویر کش شده (برای بهینه‌سازی)
+                dark_layer = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
+                dark_layer.fill((0, 0, 0, 150)) # سیاهی یکدست و شفاف
+                cached_blurred_bg.blit(dark_layer, (0, 0))
+                
+            except Exception as e:
+                print(f"Blur error: {e}")
+                cached_blurred_bg = None # اگر خطا داد، نال شود تا گرادینت نمایش داده شود
+        else:
+            cached_blurred_bg = None # اگر کاور نداشت
+
+    # --- 3. رسم پس‌زمینه ---
+    if cached_blurred_bg:
+        # نمایش تصویر بلور شده‌ی آماده
+        surface.blit(cached_blurred_bg, (0, 0))
     else:
-        draw_rounded_rect(surface, cover_art_rect, (100,100,100), 20)
-        music_icon_surf = pygame.Surface((100, 100), pygame.SRCALPHA); draw_music_icon(music_icon_surf, music_icon_surf.get_rect())
-        surface.blit(music_icon_surf, music_icon_surf.get_rect(center=cover_art_rect.center))
-    track_surf = render_persian_text(music_track_name, music_font, text_color)
-    surface.blit(track_surf, track_surf.get_rect(center=(surface.get_width()/2, 380)))
-    seek_bar_y = 440
-    seek_bar_rect = pygame.Rect(50, seek_bar_y, surface.get_width() - 100, 8)
-    draw_rounded_rect(surface, seek_bar_rect, (180, 180, 180), 4)
+        # اگر کش ساخته نشد (کاور نبود یا ارور داد)، گرادینت رنگی بساز
+        # تولید رنگ بر اساس نام آهنگ
+        import hashlib
+        hash_obj = hashlib.md5(music_track_name.encode())
+        hex_dig = hash_obj.hexdigest()
+        r, g, b = int(hex_dig[0:2], 16), int(hex_dig[2:4], 16), int(hex_dig[4:6], 16)
+        
+        draw_gradient_background(surface, (r % 80, g % 80, b % 100), (10, 10, 15))
+
+    # ==========================================
+    #      رابط کاربری (UI) - دکمه‌ها و متن‌ها
+    # ==========================================
+    text_color = WHITE 
+
+    # کاور آلبوم مرکزی
+    cover_size = 260
+    cover_art_rect = pygame.Rect(0, 0, cover_size, cover_size)
+    cover_art_rect.center = (surface.get_width() / 2, 220)
+
+    # سایه زیر کاور
+    shadow_rect = cover_art_rect.copy()
+    shadow_rect.y += 15
+    shadow_surface = pygame.Surface((cover_size, cover_size), pygame.SRCALPHA)
+    draw_rounded_rect(shadow_surface, shadow_surface.get_rect(), (0, 0, 0, 120), 30)
+    shadow_surface = pygame.transform.smoothscale(shadow_surface, (int(cover_size * 0.9), int(cover_size * 0.9)))
+    surface.blit(shadow_surface, shadow_surface.get_rect(center=(cover_art_rect.centerx, cover_art_rect.centery + 20)))
+
+    # رسم تصویر کاور
+    if current_album_art_surface:
+        scaled_art = pygame.transform.smoothscale(current_album_art_surface, cover_art_rect.size)
+        mask = pygame.Surface(cover_art_rect.size, pygame.SRCALPHA)
+        draw_rounded_rect(mask, mask.get_rect(), (255, 255, 255), 25)
+        final_art = pygame.Surface(cover_art_rect.size, pygame.SRCALPHA)
+        final_art.blit(scaled_art, (0, 0))
+        final_art.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        surface.blit(final_art, cover_art_rect.topleft)
+    else:
+        draw_rounded_rect(surface, cover_art_rect, (50, 50, 60), 25)
+        pygame.draw.rect(surface, (255, 255, 255, 30), cover_art_rect, 2, border_radius=25)
+        music_icon = pygame.Surface((100, 100), pygame.SRCALPHA)
+        draw_music_icon(music_icon, music_icon.get_rect())
+        surface.blit(music_icon, music_icon.get_rect(center=cover_art_rect.center))
+
+    # متن‌ها
+    track_name_cleaned = os.path.splitext(music_track_name)[0]
+    if len(track_name_cleaned) > 25: track_name_cleaned = track_name_cleaned[:22] + "..."
+    
+    title_font = pygame.font.Font(main_font_path, 22) if main_font_path else pygame.font.Font(None, 32)
+    artist_font = pygame.font.Font(main_font_path, 16) if main_font_path else pygame.font.Font(None, 24)
+    
+    track_surf = render_persian_text(track_name_cleaned, title_font, text_color)
+    artist_surf = render_persian_text("ParsOS Music", artist_font, (180, 180, 180))
+    
+    surface.blit(track_surf, track_surf.get_rect(center=(surface.get_width()/2, 400)))
+    surface.blit(artist_surf, artist_surf.get_rect(center=(surface.get_width()/2, 430)))
+
+    # نوار پیشرفت (Seek Bar)
+    seek_bar_rect = pygame.Rect(40, 480, surface.get_width() - 80, 4)
+    draw_rounded_rect(surface, seek_bar_rect, (255, 255, 255, 60), 2) # پس‌زمینه بار
+
     progress = 0
-    current_time_seconds = 0
+    current_time = 0
     if is_scrubbing_music:
         progress = music_scrub_progress
-        current_time_seconds = progress * current_track_length
+        current_time = progress * current_track_length
     elif is_music_playing or is_music_paused:
         if current_track_length > 0:
-            current_pos_ms = pygame.mixer.music.get_pos()
-            current_time_seconds = music_playback_start_time_offset + (current_pos_ms / 1000.0)
-            progress = current_time_seconds / current_track_length
+            current_time = music_playback_start_time_offset + (pygame.mixer.music.get_pos() / 1000.0)
+            progress = current_time / current_track_length
+    
     progress = max(0, min(1, progress))
-    progress_rect = pygame.Rect(seek_bar_rect.x, seek_bar_rect.y, seek_bar_rect.width * progress, seek_bar_rect.height)
-    draw_rounded_rect(surface, progress_rect, BLUE, 4)
-    handle_pos_x = seek_bar_rect.x + seek_bar_rect.width * progress
-    pygame.draw.circle(surface, BLUE, (handle_pos_x, seek_bar_rect.centery), 8)
-    pygame.draw.circle(surface, WHITE, (handle_pos_x, seek_bar_rect.centery), 5)
-    current_time_str = format_time(current_time_seconds)
-    total_time_str = format_time(current_track_length)
-    current_time_surf = music_time_font.render(current_time_str, True, text_color)
-    total_time_surf = music_time_font.render(total_time_str, True, text_color)
-    surface.blit(current_time_surf, current_time_surf.get_rect(right=seek_bar_rect.left - 10, centery=seek_bar_rect.centery))
-    surface.blit(total_time_surf, total_time_surf.get_rect(left=seek_bar_rect.right + 10, centery=seek_bar_rect.centery))
+    if progress > 0:
+        fill_rect = pygame.Rect(seek_bar_rect.x, seek_bar_rect.y, seek_bar_rect.width * progress, seek_bar_rect.height)
+        draw_rounded_rect(surface, fill_rect, WHITE, 2)
+        pygame.draw.circle(surface, WHITE, (fill_rect.right, seek_bar_rect.centery), 6)
+
+    # زمان
+    time_font = pygame.font.Font(main_font_path, 12) if main_font_path else pygame.font.Font(None, 18)
+    surface.blit(time_font.render(format_time(current_time), True, (200, 200, 200)), (seek_bar_rect.left, 495))
+    total_t_surf = time_font.render(format_time(current_track_length), True, (200, 200, 200))
+    surface.blit(total_t_surf, total_t_surf.get_rect(topright=(seek_bar_rect.right, 495)))
+
+    # دکمه‌های کنترل
+    cy = 570
+    play_rect = pygame.Rect(0, 0, 70, 70)
+    play_rect.center = (surface.get_width()/2, cy)
     
-    btn_bg_color = get_current_color('settings_button_bg')
-    
-    play_pause_btn_rect = pygame.Rect(0, 0, 70, 70); play_pause_btn_rect.center = (surface.get_width()/2, 520)
-    pygame.draw.circle(surface, btn_bg_color, play_pause_btn_rect.center, 35)
+    # Play Button Logic
+    pygame.draw.circle(surface, WHITE, play_rect.center, 35)
     if is_music_playing:
-        bar_width, bar_height, corner_radius = 8, 24, 3
-        pause_bar1 = pygame.Rect(play_pause_btn_rect.centerx - 12, play_pause_btn_rect.centery - 12, bar_width, bar_height)
-        pause_bar2 = pygame.Rect(play_pause_btn_rect.centerx + 4, play_pause_btn_rect.centery - 12, bar_width, bar_height)
-        draw_rounded_rect(surface, pause_bar1, text_color, corner_radius); draw_rounded_rect(surface, pause_bar2, text_color, corner_radius)
+        pygame.draw.rect(surface, BLACK, (play_rect.centerx-9, play_rect.centery-10, 6, 20), border_radius=2)
+        pygame.draw.rect(surface, BLACK, (play_rect.centerx+3, play_rect.centery-10, 6, 20), border_radius=2)
     else:
-        center = pygame.Vector2(play_pause_btn_rect.center)
-        size = 15
-        p1 = (center.x + size * 0.7, center.y)
-        p2 = (center.x - size * 0.5, center.y - size * 0.8)
-        p3 = (center.x - size * 0.5, center.y + size * 0.8)
-        pygame.draw.polygon(surface, text_color, [p1, p2, p3])
-        pygame.draw.circle(surface, text_color, p1, 3); pygame.draw.circle(surface, text_color, p2, 3); pygame.draw.circle(surface, text_color, p3, 3)
+        pts = [(play_rect.centerx-5, play_rect.centery-10), (play_rect.centerx-5, play_rect.centery+10), (play_rect.centerx+10, play_rect.centery)]
+        pygame.draw.polygon(surface, BLACK, pts)
 
-    next_btn_rect = pygame.Rect(0, 0, 50, 50)
-    next_btn_rect.center = (play_pause_btn_rect.centerx + 80, play_pause_btn_rect.centery)
-    pygame.draw.circle(surface, btn_bg_color, next_btn_rect.center, 25)
-    p1 = (next_btn_rect.centerx - 5, next_btn_rect.centery - 10)
-    p2 = (next_btn_rect.centerx - 5, next_btn_rect.centery + 10)
-    p3 = (next_btn_rect.centerx + 5, next_btn_rect.centery)
-    pygame.draw.polygon(surface, text_color, [p1,p2,p3])
-    pygame.draw.rect(surface, text_color, (next_btn_rect.centerx + 5, next_btn_rect.centery - 10, 4, 20))
-    
-    prev_btn_rect = pygame.Rect(0, 0, 50, 50)
-    prev_btn_rect.center = (play_pause_btn_rect.centerx - 80, play_pause_btn_rect.centery)
-    pygame.draw.circle(surface, btn_bg_color, prev_btn_rect.center, 25)
-    p1 = (prev_btn_rect.centerx + 5, prev_btn_rect.centery - 10)
-    p2 = (prev_btn_rect.centerx + 5, prev_btn_rect.centery + 10)
-    p3 = (prev_btn_rect.centerx - 5, prev_btn_rect.centery)
-    pygame.draw.polygon(surface, text_color, [p1,p2,p3])
-    pygame.draw.rect(surface, text_color, (prev_btn_rect.centerx - 9, prev_btn_rect.centery - 10, 4, 20))
+    # Next/Prev Buttons
+    next_rect = pygame.Rect(0, 0, 50, 50)
+    next_rect.center = (play_rect.centerx + 80, cy)
+    pygame.draw.polygon(surface, WHITE, [(next_rect.centerx+8, cy), (next_rect.centerx-6, cy-8), (next_rect.centerx-6, cy+8)])
+    pygame.draw.rect(surface, WHITE, (next_rect.centerx+10, cy-8, 3, 16))
 
-    seek_bar_clickable_rect = seek_bar_rect.inflate(0, 20)
-    return {'play_pause_btn': play_pause_btn_rect, 'seek_bar': seek_bar_clickable_rect, 'next_btn': next_btn_rect, 'prev_btn': prev_btn_rect}
+    prev_rect = pygame.Rect(0, 0, 50, 50)
+    prev_rect.center = (play_rect.centerx - 80, cy)
+    pygame.draw.polygon(surface, WHITE, [(prev_rect.centerx-8, cy), (prev_rect.centerx+6, cy-8), (prev_rect.centerx+6, cy+8)])
+    pygame.draw.rect(surface, WHITE, (prev_rect.centerx-13, cy-8, 3, 16))
+
+    return {'play_pause_btn': play_rect, 'seek_bar': seek_bar_rect.inflate(0, 30), 'next_btn': next_rect, 'prev_btn': prev_rect}
 
 def draw_browser_app_screen(surface):
+    global browser_scroll_offset
+    browser_scroll_offset += (target_browser_scroll_offset - browser_scroll_offset) * 0.2
+
     surface.fill(get_current_color('browser_bg'))
     text_color = get_current_color('settings_title')
     
@@ -3505,8 +3608,8 @@ while running:
 
             if event.type == pygame.MOUSEWHEEL and app_name in ['browser', 'files']:
                 if app_name == 'browser':
-                    browser_scroll_offset -= event.y * 30; max_scroll = max(0, browser_content_height - (SCREEN_HEIGHT - 120))
-                    browser_scroll_offset = max(0, min(browser_scroll_offset, max_scroll))
+                    target_browser_scroll_offset -= event.y * 30; max_scroll = max(0, browser_content_height - (SCREEN_HEIGHT - 120))
+                    target_browser_scroll_offset = max(0, min(target_browser_scroll_offset, max_scroll))
                 elif app_name == 'files':
                     target_files_scroll_offset -= event.y * 30; max_scroll = max(0, files_content_height - (SCREEN_HEIGHT - 100))
                     target_files_scroll_offset = max(0, min(target_files_scroll_offset, max_scroll))
@@ -3655,6 +3758,11 @@ while running:
                             elif active_button_key == 'select_lang_btn':
                                 # (جدید) باز کردن مودال انتخاب زبان
                                 is_language_picker_open = True
+                                # (جدید) ذخیره Rect دکمه برای انیمیشن
+                                temp_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+                                buttons = draw_settings_language_screen(temp_surf)
+                                language_picker_start_rect = buttons['select_lang_btn'].copy()
+
                                 snapshot = screen.copy()
                                 language_picker_blurred_bg = apply_gaussian_blur(snapshot)
                         elif app_page in ['wallpaper', 'display', 'lock_screen', 'custom_wallpaper', 'custom_lock_wallpaper', 'about']:
@@ -3754,6 +3862,7 @@ while running:
         language_picker_progress = max(0.0, language_picker_progress - 0.08)
         if language_picker_progress <= 0.0:
             language_picker_blurred_bg = None
+            language_picker_start_rect = None # (جدید)
         
     if current_screen == "app_open" and app_context.get('is_external_app'):
         app_instance = running_app_instances.get(app_context['app_id'])
@@ -3783,7 +3892,7 @@ while running:
                 browser_content_surfaces, browser_content_height = parse_html_to_surfaces(html_content, SCREEN_WIDTH - 40)
                 browser_page_title = "خطا"
 
-            browser_scroll_offset, is_url_input_active = 0, False
+            browser_scroll_offset, target_browser_scroll_offset, is_url_input_active = 0.0, 0.0, False
             browser_is_loading = False
             del app_context['browser_thread_key']
 
@@ -4067,33 +4176,86 @@ while running:
         draw_status_bar()
         
         if current_screen == "app_opening" and app_animation_progress >= 1.0:
-            current_screen = "app_open"; app_name = app_context.get('app_name')
-
-            # (جدید) ثبت فرآیند در کرنل
-            app_id = app_context.get('app_id', app_name) # از app_id استفاده کن اگر وجود دارد
-            kernel.kernel_instance.register_process(app_id, app_name)
+            app_name = app_context.get('app_name')
+            app_id = app_context.get('app_id', app_name)
             
+            # بررسی کنیم آیا برنامه خارجی است یا خیر
             if app_context.get('is_external_app'):
                 app_id = app_context['app_id']
-                if app_id not in running_app_instances:
-                    try:
-                        app_path = os.path.join('installed_apps', app_id)
-                        manifest_path = os.path.join(app_path, 'manifest.json')
-                        with open(manifest_path, 'r', encoding='utf-8') as f: manifest = json.load(f)
-                        main_file = manifest.get('main_file', 'main.py'); main_class_name = manifest.get('main_class'); module_path = os.path.join(app_path, main_file)
-                        spec = importlib.util.spec_from_file_location(f"installed_apps.{app_id}.main", module_path)
-                        app_module = importlib.util.module_from_spec(spec); spec.loader.exec_module(app_module)
-                        AppClass = getattr(app_module, main_class_name)
-                        running_app_instances[app_id] = AppClass(app_id, app_name, app_path)
-                    except Exception as e:
-                        print(f"ERROR: Could not load external app '{app_id}': {e}")
-                        running_app_instances[app_id] = ParsOS_App(app_id, f"Error: {app_name}", app_path)
-            existing_app = next((item for item in recents_apps_list if item.get('name') == app_name and item.get('app_id') == app_context.get('app_id')), None)
-            if existing_app: recents_apps_list.remove(existing_app)
-            new_recent = {'name': app_name}
-            if app_context.get('app_id'): new_recent['app_id'] = app_context.get('app_id')
-            recents_apps_list.insert(0, new_recent);
-            if len(recents_apps_list) > 10: recents_apps_list.pop()
+                app_path = os.path.join('installed_apps', app_id)
+                manifest_path = os.path.join(app_path, 'manifest.json')
+                
+                try:
+                    with open(manifest_path, 'r', encoding='utf-8') as f: manifest = json.load(f)
+                    
+                    # --- تغییر اصلی اینجاست ---
+                    # بررسی نوع برنامه از روی مانیفست
+                    app_type = manifest.get('type', 'integrated') # پیش‌فرض integrated است
+                    main_file = manifest.get('main_file', 'main.py')
+                    
+                    if app_type == 'native':
+                        # اجرای برنامه به صورت یک پروسه جداگانه (مثل Weather.py)
+                        script_path = os.path.join(app_path, main_file)
+                        print(f"Launching native app: {script_path}")
+                        
+                        # اجرای اسکریپت با مفسر پایتون فعلی
+                        # cwd=app_path بسیار مهم است تا برنامه بتواند تصاویر کنار خودش را پیدا کند
+                        # اجرای اسکریپت و هدایت خطاها به کنسول اصلی
+                        # استفاده از stdout و stderr باعث می‌شود خطاها در ترمینال سیستم عامل دیده شوند
+                        subprocess.Popen(
+                            [sys.executable, script_path], 
+                            cwd=app_path,
+                            stdout=sys.stdout,
+                            stderr=sys.stderr
+                        )
+                        
+                        # چون برنامه پنجره جدا دارد، سیستم عامل را به حالت خانه برمی‌گردانیم
+                        current_screen = "home"
+                        add_unimportant_notification(f"{app_name} اجرا شد")
+                        
+                        # اضافه کردن به لیست برنامه‌های اخیر (اختیاری، چون پنجره جدا دارد ممکن است نخواهید)
+                        existing_app = next((item for item in recents_apps_list if item.get('name') == app_name and item.get('app_id') == app_id), None)
+                        if existing_app: recents_apps_list.remove(existing_app)
+                        new_recent = {'name': app_name, 'app_id': app_id, 'type': 'native'}
+                        recents_apps_list.insert(0, new_recent)
+
+                    else:
+                        # منطق قبلی برای برنامه‌های یکپارچه (ParsOS_App)
+                        current_screen = "app_open"
+                        kernel.kernel_instance.register_process(app_id, app_name)
+                        
+                        if app_id not in running_app_instances:
+                            main_class_name = manifest.get('main_class')
+                            module_path = os.path.join(app_path, main_file)
+                            spec = importlib.util.spec_from_file_location(f"installed_apps.{app_id}.main", module_path)
+                            app_module = importlib.util.module_from_spec(spec)
+                            spec.loader.exec_module(app_module)
+                            AppClass = getattr(app_module, main_class_name)
+                            running_app_instances[app_id] = AppClass(app_id, app_name, app_path)
+
+                        # اضافه کردن به Recent Apps
+                        existing_app = next((item for item in recents_apps_list if item.get('name') == app_name and item.get('app_id') == app_id), None)
+                        if existing_app: recents_apps_list.remove(existing_app)
+                        new_recent = {'name': app_name, 'app_id': app_id}
+                        recents_apps_list.insert(0, new_recent)
+                        if len(recents_apps_list) > 10: recents_apps_list.pop()
+
+                except Exception as e:
+                    print(f"ERROR launching app '{app_id}': {e}")
+                    current_screen = "home"
+                    add_unimportant_notification("خطا در اجرای برنامه")
+            
+            else:
+                # برنامه‌های داخلی سیستم (مثل Settings, Notes, ...)
+                current_screen = "app_open"
+                kernel.kernel_instance.register_process(app_id, app_name)
+                # منطق Recent Apps برای برنامه‌های داخلی
+                existing_app = next((item for item in recents_apps_list if item.get('name') == app_name and item.get('app_id') == app_context.get('app_id')), None)
+                if existing_app: recents_apps_list.remove(existing_app)
+                new_recent = {'name': app_name}
+                if app_context.get('app_id'): new_recent['app_id'] = app_context.get('app_id')
+                recents_apps_list.insert(0, new_recent)
+                if len(recents_apps_list) > 10: recents_apps_list.pop()
 
         elif current_screen == "app_closing" and app_animation_progress <= 0.0:
             closed_app_name = app_context.get('app_name')
