@@ -3,7 +3,8 @@
 **English** | [**فارسی (Persian)**](./README.fa.md)
 
 </div>
-<img width="500" height="500" alt="photo_2025-12-18_17-44-47-removebg-preview" src="https://github.com/user-attachments/assets/3f8c5295-f54a-4063-bed2-fa2cca52434d" />
+<img width="500" height="500" alt="Logo‏‏ (2)" src="https://github.com/user-attachments/assets/01ea9eb5-d3e8-4bcf-ba77-9fb610c9a728" />
+
 
 # 🚀 ParsOS NEXT
 
