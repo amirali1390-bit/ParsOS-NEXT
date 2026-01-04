@@ -29,5 +29,5 @@ pip install mutagen
 pip install rembg
 pip install Pillow
 ```
-### همچنین از اینجا بازدید کنید:
+### برای تماشای عملکرد این پروژه از اینجا بازدید کنید:
 https://aparat.com/v/chs00u7
