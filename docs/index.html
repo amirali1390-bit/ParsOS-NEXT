@@ -545,6 +545,248 @@
       opacity: 0.8;
     }
 
+    /* --- تم اختصاصی نوروز --- */
+  @import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&display=swap');
+
+  #nowruz-modal .modal-content {
+    display: none; /* hide default */
+  }
+
+  .nowruz-overlay-inner {
+    position: relative;
+    width: 95%;
+    max-width: 560px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 0 0 2px rgba(255,215,80,0.5), 0 30px 80px rgba(0,0,0,0.6), 0 0 60px rgba(255,180,0,0.3);
+    animation: nowruzAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  @keyframes nowruzAppear {
+    from { opacity: 0; transform: scale(0.8) translateY(30px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .nowruz-card {
+    background: linear-gradient(160deg, #0a1628 0%, #0d2444 30%, #0a1e38 60%, #0d1c33 100%);
+    padding: 2.5rem 2rem 2rem;
+    text-align: center;
+    position: relative;
+    font-family: 'Amiri', 'Vazirmatn', serif;
+    direction: rtl;
+  }
+
+  /* پس‌زمینه ستاره‌ها */
+  .nowruz-stars {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .nowruz-stars span {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 3s ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.5); }
+  }
+
+  /* گل‌های متحرک */
+  .nowruz-petals-container {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .petal {
+    position: absolute;
+    font-size: 1.2rem;
+    animation: petalFall linear infinite;
+    opacity: 0;
+  }
+  @keyframes petalFall {
+    0%   { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 0.7; }
+    100% { transform: translateY(520px) rotate(720deg); opacity: 0; }
+  }
+
+  /* خط تزئینی بالا */
+  .nowruz-top-border {
+    height: 4px;
+    background: linear-gradient(90deg, transparent, #c8962a, #f5d060, #f0a830, #c8962a, transparent);
+    margin-bottom: 1.5rem;
+    position: relative;
+    border-radius: 2px;
+  }
+  .nowruz-top-border::before,
+  .nowruz-top-border::after {
+    content: '✦';
+    position: absolute;
+    top: 50%; transform: translateY(-50%);
+    color: #f5d060;
+    font-size: 0.8rem;
+  }
+  .nowruz-top-border::before { left: 20%; }
+  .nowruz-top-border::after  { right: 20%; }
+
+  /* هفت‌سین مینیاتوری */
+  .nowruz-haftsin {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .haftsin-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(245,208,96,0.2);
+    border-radius: 10px;
+    padding: 0.4rem 0.5rem;
+    min-width: 44px;
+    transition: transform 0.3s ease;
+    cursor: default;
+  }
+  .haftsin-item:hover {
+    transform: translateY(-5px) scale(1.1);
+    border-color: rgba(245,208,96,0.6);
+    background: rgba(255,255,255,0.1);
+  }
+  .haftsin-emoji { font-size: 1.5rem; }
+  .haftsin-name { font-size: 0.55rem; color: #d4af50; letter-spacing: 0.5px; font-family: 'Vazirmatn', sans-serif; }
+
+  /* عنوان */
+  .nowruz-main-title {
+    font-family: 'Amiri', serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #f5d060, #e8a020, #f5d060, #fff8dc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 1rem 0 0.3rem;
+    text-shadow: none;
+    line-height: 1.3;
+  }
+
+  .nowruz-year-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #c8962a, #f5d060, #c8962a);
+    color: #0a1628;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.2rem 1rem;
+    border-radius: 20px;
+    margin-bottom: 1rem;
+    font-family: 'Vazirmatn', sans-serif;
+    letter-spacing: 1px;
+  }
+
+  .nowruz-verse {
+    font-family: 'Amiri', serif;
+    font-size: 1.05rem;
+    color: #c8b87a;
+    font-style: italic;
+    line-height: 1.8;
+    margin: 0.8rem 0;
+    padding: 0.8rem;
+    border-top: 1px solid rgba(245,208,96,0.15);
+    border-bottom: 1px solid rgba(245,208,96,0.15);
+  }
+
+  .nowruz-message {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.7;
+    margin: 0.8rem 0;
+    font-family: 'Vazirmatn', sans-serif;
+  }
+
+  /* شمارش معکوس */
+  .nowruz-countdown-grid {
+    display: flex;
+    justify-content: center;
+    gap: 0.8rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+  .countdown-box {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(245,208,96,0.3);
+    border-radius: 12px;
+    padding: 0.6rem 0.8rem;
+    min-width: 60px;
+    text-align: center;
+  }
+  .countdown-num {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #f5d060;
+    display: block;
+    font-family: 'Amiri', serif;
+    line-height: 1;
+  }
+  .countdown-label {
+    font-size: 0.65rem;
+    color: rgba(200,180,100,0.8);
+    font-family: 'Vazirmatn', sans-serif;
+    margin-top: 3px;
+    display: block;
+  }
+
+  /* دکمه بستن */
+  .nowruz-close-btn {
+    position: absolute; top: 12px; left: 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7);
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+  }
+  .nowruz-close-btn:hover {
+    background: rgba(245,208,96,0.2);
+    color: #f5d060;
+    transform: scale(1.1);
+  }
+
+  .nowruz-ok-btn {
+    background: linear-gradient(135deg, #c8962a, #f5d060, #c8962a);
+    color: #0a1628;
+    border: none;
+    font-family: 'Vazirmatn', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 0.7rem 2.5rem;
+    border-radius: 50px;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(245,208,96,0.3);
+  }
+  .nowruz-ok-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(245,208,96,0.5);
+  }
+
+  /* خط تزئینی پایین */
+  .nowruz-bottom-dec {
+    margin-top: 1.2rem;
+    color: #c8962a;
+    font-size: 1.2rem;
+    letter-spacing: 8px;
+    opacity: 0.6;
+  }
 
 
     /* --- انیمیشن‌ها --- */
@@ -609,6 +851,63 @@
       <h2 class="yalda-title" data-key="yalda-title">شب یلدا مبارک</h2>
       <p class="yalda-text" data-key="yalda-desc">یلدا، بهانه‌ای برای با هم بودن در طولانی‌ترین شب سال. لحظاتتان شاد و شیرین!</p>
       <button class="action-button primary" id="yalda-ok-btn">❤️</button>
+    </div>
+  </div>
+
+  <!-- نوروز مودال - طراحی اختصاصی -->
+  <div id="nowruz-modal" class="modal-overlay">
+    <div class="nowruz-overlay-inner">
+      <div class="nowruz-card">
+
+        <!-- ستاره‌های پس‌زمینه -->
+        <div class="nowruz-stars" id="nowruz-stars-bg"></div>
+        <!-- گل‌های متحرک -->
+        <div class="nowruz-petals-container" id="nowruz-petals"></div>
+
+        <!-- دکمه بستن -->
+        <button class="nowruz-close-btn" id="nowruz-modal-close">&times;</button>
+
+        <!-- خط تزئینی -->
+        <div class="nowruz-top-border"></div>
+
+        <!-- هفت‌سین -->
+        <div class="nowruz-haftsin">
+          <div class="haftsin-item"><span class="haftsin-emoji">🌿</span><span class="haftsin-name">سبزه</span></div>
+          <div class="haftsin-item"><span class="haftsin-emoji">🍎</span><span class="haftsin-name">سیب</span></div>
+          <div class="haftsin-item"><span class="haftsin-emoji">🌾</span><span class="haftsin-name">سمنو</span></div>
+          <div class="haftsin-item"><span class="haftsin-emoji">🪻</span><span class="haftsin-name">سنبل</span></div>
+          <div class="haftsin-item"><span class="haftsin-emoji">🪙</span><span class="haftsin-name">سکه</span></div>
+          <div class="haftsin-item"><span class="haftsin-emoji">🧄</span><span class="haftsin-name">سیر</span></div>
+          <div class="haftsin-item"><span class="haftsin-emoji">🍊</span><span class="haftsin-name">سماق</span></div>
+        </div>
+
+        <!-- عنوان اصلی -->
+        <h2 class="nowruz-main-title" id="nowruz-title">نوروز مبارک 🌸</h2>
+        <div class="nowruz-year-badge" id="nowruz-year-badge">سال 1405</div>
+
+        <!-- بیت شعر -->
+        <p class="nowruz-verse" id="nowruz-verse">
+          عید آمد و نو شد جهان، از نو بیا ای دوست<br>
+          تا باغ دلت سبز شود چون باغ نوروز
+        </p>
+
+        <!-- پیام -->
+        <p class="nowruz-message" id="nowruz-desc">سال نو سرشار از سلامتی، شادی، موفقیت و آرامش برایتان آرزو داریم.</p>
+
+        <!-- شمارش معکوس -->
+        <div id="nowruz-countdown-grid" class="nowruz-countdown-grid" style="display:none;">
+          <div class="countdown-box"><span class="countdown-num" id="cd-days">00</span><span class="countdown-label">روز</span></div>
+          <div class="countdown-box"><span class="countdown-num" id="cd-hours">00</span><span class="countdown-label">ساعت</span></div>
+          <div class="countdown-box"><span class="countdown-num" id="cd-mins">00</span><span class="countdown-label">دقیقه</span></div>
+          <div class="countdown-box"><span class="countdown-num" id="cd-secs">00</span><span class="countdown-label">ثانیه</span></div>
+        </div>
+
+        <!-- دکمه -->
+        <button class="nowruz-ok-btn" id="nowruz-ok-btn">نوروزتان پیروز ✨</button>
+
+        <!-- تزئین پایین -->
+        <div class="nowruz-bottom-dec">✦ ✦ ✦</div>
+      </div>
     </div>
   </div>
 
@@ -833,6 +1132,175 @@
       setLang(savedLang || (translations[userLang] ? userLang : 'fa'));
       
       checkYalda(); 
+
+    /* ============================= */
+    /*         منطق نوروز           */
+    /* ============================= */
+
+    const nowruzModal = document.getElementById('nowruz-modal');
+    const nowruzModalClose = document.getElementById('nowruz-modal-close');
+    const nowruzOkBtn = document.getElementById('nowruz-ok-btn');
+    const nowruzTitle = document.getElementById('nowruz-title');
+    const nowruzDesc = document.getElementById('nowruz-desc');
+    const nowruzVerse = document.getElementById('nowruz-verse');
+    const nowruzYearBadge = document.getElementById('nowruz-year-badge');
+    const nowruzCountdownGrid = document.getElementById('nowruz-countdown-grid');
+
+    const closeNowruz = () => nowruzModal.classList.remove('modal-visible');
+    nowruzModalClose.addEventListener('click', closeNowruz);
+    nowruzOkBtn.addEventListener('click', closeNowruz);
+    nowruzModal.addEventListener('click', (e) => { if (e.target === nowruzModal) closeNowruz(); });
+
+    /* -------------------------------------------------------
+       جدول دقیق لحظه تحویل سال (به وقت UTC) - منبع: USNO/JPL
+       برای هر سال میلادی، لحظه دقیق اعتدال بهاری ذکر شده
+    ------------------------------------------------------- */
+    const NOWRUZ_EXACT = {
+      2024: new Date('2024-03-20T03:06:00Z'), // 20 مارس ۲۰۲۴ ساعت ۰۶:۳۶ تهران
+      2025: new Date('2025-03-20T09:01:00Z'), // 20 مارس ۲۰۲۵ ساعت ۱۲:۳۱ تهران
+      2026: new Date('2026-03-20T14:45:00Z'), // 20 مارس ۲۰۲۶ ساعت ۱۸:۱۵ تهران
+      2027: new Date('2027-03-20T20:25:00Z'), // 21 مارس ۲۰۲۷ ساعت ۰۰:۵۵ تهران
+      2028: new Date('2028-03-20T02:17:00Z'), // 20 مارس ۲۰۲۸ ساعت ۰۵:۴۷ تهران
+      2029: new Date('2029-03-20T08:02:00Z'), // 20 مارس ۲۰۲۹ ساعت ۱۱:۳۲ تهران
+      2030: new Date('2030-03-20T13:52:00Z'), // 20 مارس ۲۰۳۰ ساعت ۱۷:۲۲ تهران
+    };
+
+    /* اگر سال در جدول نبود، یک تقریب محاسبه می‌شود (±۱ ساعت دقت) */
+    function getNowruzDate(gYear) {
+      if (NOWRUZ_EXACT[gYear]) return NOWRUZ_EXACT[gYear];
+      // تقریب بر اساس چرخه میانگین اعتدال
+      const baseYear = 2025;
+      const baseUTC = NOWRUZ_EXACT[2025].getTime();
+      const tropicalYear = 365.24219 * 24 * 3600 * 1000;
+      return new Date(baseUTC + (gYear - baseYear) * tropicalYear);
+    }
+
+    /* تبدیل سال میلادی به شمسی */
+    function getShamsiYear(gYear) {
+      return gYear - 621; // تقریب ساده (کافی برای نمایش)
+    }
+
+    /* ساخت ستاره‌ها */
+    function createNowruzStars() {
+      const container = document.getElementById('nowruz-stars-bg');
+      if (!container) return;
+      for (let i = 0; i < 40; i++) {
+        const s = document.createElement('span');
+        s.style.left = Math.random() * 100 + '%';
+        s.style.top = Math.random() * 100 + '%';
+        s.style.animationDelay = Math.random() * 3 + 's';
+        s.style.animationDuration = (2 + Math.random() * 3) + 's';
+        s.style.opacity = Math.random() * 0.6;
+        container.appendChild(s);
+      }
+    }
+
+    /* ساخت گل‌های متحرک */
+    function createNowruzPetals() {
+      const container = document.getElementById('nowruz-petals');
+      if (!container) return;
+      const petals = ['🌸', '🌺', '🌷', '🌼', '✿', '❀'];
+      for (let i = 0; i < 12; i++) {
+        const p = document.createElement('span');
+        p.className = 'petal';
+        p.textContent = petals[Math.floor(Math.random() * petals.length)];
+        p.style.left = Math.random() * 100 + '%';
+        p.style.fontSize = (0.8 + Math.random() * 0.8) + 'rem';
+        p.style.animationDuration = (4 + Math.random() * 6) + 's';
+        p.style.animationDelay = Math.random() * 6 + 's';
+        container.appendChild(p);
+      }
+    }
+
+    let nowruzInterval = null;
+
+    function checkNowruz() {
+      const nowOriginal = new Date(); // زمان فعلی سیستم
+      const now = new Date(nowOriginal.getTime() + nowOriginal.getTimezoneOffset() * 60 * 1000); // تبدیل به UTC
+
+      const currentYear = now.getFullYear();
+      const nowruzDate = getNowruzDate(currentYear);
+      const tenDaysBefore = new Date(nowruzDate.getTime() - (10 * 24 * 60 * 60 * 1000));
+      const thirteenFarvardin = new Date(nowruzDate.getTime() + (13 * 24 * 60 * 60 * 1000));
+      const shamsiYear = getShamsiYear(currentYear);
+
+      // --- برای دیباگ کردن ---
+      console.log('Current Time (Original):', nowOriginal.toISOString());
+      console.log('Current Time (UTC):', now.toISOString());
+      console.log('Nowruz Date (UTC):', nowruzDate.toISOString());
+      console.log('Ten Days Before (UTC):', tenDaysBefore.toISOString());
+      console.log('Thirteen Farvardin (UTC):', thirteenFarvardin.toISOString());
+      console.log('Is within range:', now >= tenDaysBefore && now <= thirteenFarvardin);
+      console.log('Is before Nowruz:', now < nowruzDate);
+      // ------------------------
+
+      if (now >= tenDaysBefore && now <= thirteenFarvardin) {
+        // ستاره و گل بساز
+        createNowruzStars();
+        createNowruzPetals();
+
+        setTimeout(() => nowruzModal.classList.add('modal-visible'), 2000);
+
+        // سال شمسی
+        nowruzYearBadge.textContent = `سال ۱۴${shamsiYear % 100 === 0 ? shamsiYear : shamsiYear}`;
+        // نمایش شماره سال صحیح
+        nowruzYearBadge.textContent = `سال ۱۴${String(shamsiYear).slice(-2)}`;
+
+        if (now < nowruzDate) {
+          // ---- پیش از تحویل: شمارش معکوس ----
+          nowruzVerse.style.display = 'none';
+          nowruzDesc.textContent = 'تا لحظه تحویل سال دقیقاً:';
+
+          const verses = [
+            'عید آمد و نو شد جهان از نو بیا ای دوست\nتا باغ دلت سبز شود چون باغ نوروز',
+            'صبح است و آفتاب ز مشرق سر می‌زند\nنوروز می‌رسد و دل از غم رها می‌شود'
+          ];
+
+          nowruzCountdownGrid.style.display = 'flex';
+
+          const updateCountdown = () => {
+            const diff = nowruzDate - new Date();
+            if (diff <= 0) {
+              clearInterval(nowruzInterval);
+              location.reload();
+              return;
+            }
+            const days    = Math.floor(diff / (1000*60*60*24));
+            const hours   = Math.floor((diff / (1000*60*60)) % 24);
+            const minutes = Math.floor((diff / (1000*60)) % 60);
+            const seconds = Math.floor((diff / 1000) % 60);
+
+            document.getElementById('cd-days').textContent  = String(days).padStart(2,'0');
+            document.getElementById('cd-hours').textContent = String(hours).padStart(2,'0');
+            document.getElementById('cd-mins').textContent  = String(minutes).padStart(2,'0');
+            document.getElementById('cd-secs').textContent  = String(seconds).padStart(2,'0');
+
+            if (days > 2) {
+              nowruzTitle.textContent = '🌱 نوروز نزدیک است';
+            } else if (days >= 1) {
+              nowruzTitle.textContent = '🌷 نوروز در راه است';
+            } else {
+              nowruzTitle.textContent = '✨ لحظه تحویل نزدیک است!';
+            }
+          };
+          updateCountdown();
+          nowruzInterval = setInterval(updateCountdown, 1000);
+
+        } else {
+          // ---- پس از تحویل: تبریک ----
+          nowruzTitle.textContent = '🌸 نوروز مبارک 🌸';
+          nowruzDesc.textContent = 'سال نو سرشار از سلامتی، شادی، موفقیت و آرامش برایتان آرزو داریم.';
+          nowruzVerse.innerHTML = 'عید آمد و نو شد جهان، از نو بیا ای دوست<br>تا باغ دلت سبز شود چون باغ نوروز';
+          nowruzCountdownGrid.style.display = 'none';
+          nowruzOkBtn.textContent = 'نوروزتان پیروز ✨';
+        }
+      }
+    }
+
+    checkNowruz();
+
+    document.addEventListener('DOMContentLoaded', checkNowruz);
+
     });
   </script>
 </body>
