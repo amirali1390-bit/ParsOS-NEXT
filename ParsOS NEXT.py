@@ -7450,4 +7450,4 @@ if browser_manager:
     browser_manager.quit()
     
 save_layout(); save_settings(); save_notes()
-pygame.quit(); sys.exit()
+pygame.quit(); sys.exit() 
