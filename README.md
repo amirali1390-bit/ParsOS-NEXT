@@ -30,4 +30,4 @@ pip install rembg
 pip install Pillow
 ```
 #### Also see here!:
-https://aparat.com/v/chs00u7
+https://www.aparat.com/v/vggr690
