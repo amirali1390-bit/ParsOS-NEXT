@@ -2,8 +2,8 @@
 
 **English** | [**فارسی (Persian)**](./README.fa.md)
 
-</div>
-<img width="500" height="500" alt="Logo‏‏ (2)" src="https://github.com/user-attachments/assets/01ea9eb5-d3e8-4bcf-ba77-9fb610c9a728" />
+
+<img width="1890" height="1417" alt="Logo" src="https://github.com/user-attachments/assets/d8b52199-6af4-4b2d-8f12-8939c79d9ef4" />
 
 
 # 🚀 ParsOS NEXT
@@ -11,7 +11,8 @@
 This is a complete mobile OS simulator built using Python and Pygame.
 This project features smooth animations, app management, a control center, notification center, glass blur effects, and even a Depth Effect for the lock screen. 
 
-<img width="499" height="911" alt="Home screen" src="https://github.com/user-attachments/assets/9c462b59-c1a3-4712-b221-a85ff9401768" />
+<img width="1890" height="1417" alt="Poster" src="https://github.com/user-attachments/assets/779db58e-264a-49bd-a568-7cde43a9bed6" />
+
 
 ## 🏁 Getting Started
 
@@ -29,5 +30,7 @@ pip install mutagen
 pip install rembg
 pip install Pillow
 ```
-#### Also see here!:
+(its better to use pygame-ce for more performance)
+#### Also you can
+ see here!:
 https://www.aparat.com/v/vggr690
