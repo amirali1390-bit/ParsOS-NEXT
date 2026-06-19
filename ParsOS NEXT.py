@@ -23,6 +23,9 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from display_server import DisplayServer, RemoteApp
+from apps.notes import NotesApp
+import shutil
 
 try:
     from bs4 import BeautifulSoup
@@ -238,6 +241,29 @@ class BrowserManager:
 browser_manager = None
 browser_initialized = False
 
+# --- متغیرهای SuperIsland ---
+is_superisland_enabled = False
+superisland_switch_progress = 0.0
+superisland_state = 'hidden'      # 'hidden', 'capsule', 'expanded'
+superisland_anim_progress = 0.0   # 0.0 تا 1.0 (ورود و خروج جزیره)
+superisland_expand_progress = 0.0 # 0.0 تا 1.0 (تبدیل به مستطیل بزرگ)
+
+# --- متغیرهای صفحه والپیپر سفارشی ---
+custom_wp_scroll_offset = 0.0
+target_custom_wp_scroll_offset = 0.0
+custom_wp_thumbnails = {} # برای جلوگیری از لگ هنگام اسکرول
+
+AI_MODEL_PATH = "ai_model.safetensors"
+ai_model_exists = os.path.exists(AI_MODEL_PATH)
+
+is_ai_layout_enabled = False
+ai_preview_active = False
+ai_preview_progress = 0.0
+
+# سیستم جمع‌آوری داده رفتار کاربر
+ai_learning_start_time = None
+ai_app_clicks = {}  # ذخیره کلیک روی هر اپلیکیشن
+
 # =====================================================
 # --- متغیرهای پیام‌رسان WiFi ---
 # =====================================================
@@ -265,6 +291,24 @@ messenger_new_peer_ip   = ""         # آدرس IP دستگاه مخاطب (بر
 messenger_new_focus     = 'name'     # فیلد فعال: 'name' | 'ip' | 'peer_ip'
 input_url_text = ""
 is_typing_url = False
+
+# =====================================================
+# --- متغیرهای حالت توسعه دهنده (Developer Mode) ---
+# =====================================================
+is_developer_mode = False
+is_root_enabled = False  # متغیر دسترسی ریشه
+about_logo_click_count = 0
+last_about_logo_click_time = 0.0
+
+settings_scroll_offset = 0.0
+target_settings_scroll_offset = 0.0
+
+# =====================================================
+# --- متغیر های برنامه ---
+# =====================================================
+
+display_server = DisplayServer()
+display_server.start()
 
 # (جدید) کلاس پایه برای تمام برنامههای قابل نصب
 class ParsOS_App:
@@ -433,6 +477,7 @@ is_theme_animating = False
 theme_animation_progress = 0.0
 theme_animation_direction = 0
 dark_mode_switch_progress = 0.0
+home_snapshot_for_animation = None
 
 THEME_COLORS = {
     'settings_bg': [LIGHT_GRAY, (30, 30, 40)],
@@ -449,7 +494,16 @@ THEME_COLORS = {
     'context_menu_text': [BLACK, WHITE],
     'browser_bg': [(240, 240, 245), (25, 25, 30)],
     'files_bg': [(248, 248, 252), (32, 32, 42)], 
-    'gallery_bg': [(250, 250, 250), (28, 28, 28)]
+    'gallery_bg': [(250, 250, 250), (28, 28, 28)],
+    'card_bg': ((255,255,255), (35,35,35)),
+    'card_border': ((200,200,200), (60,60,60)),
+    'accent': ((0,120,255), (0,120,255)),
+    'subtext': ((90,90,90), (180,180,180)),
+    'text_main': ((20,20,20), (240,240,240)),
+    'text_muted': ((120,120,120), (160,160,160)),
+    'nav_bg': ((245,245,245), (40,40,40)),
+    'border': ((200,200,200), (70,70,70)),
+    'main_bg': ((235,235,235), (25,25,25))
 }
 DARK_MODE_BG_TOP = (20, 20, 30)
 DARK_MODE_BG_BOTTOM = (50, 50, 70)
@@ -493,6 +547,8 @@ try:
     settings_title_font = pygame.font.Font(main_font_path, sc(24))
     music_time_font     = pygame.font.Font(main_font_path, sc(12))
     browser_content_font= pygame.font.Font(main_font_path, sc(14))
+    clock_font          = pygame.font.Font(main_font_path, sc(80))
+    large_clock_font    = pygame.font.Font(main_font_path, sc(120)) # فونت جدید و بزرگ‌تر
 except FileNotFoundError:
     print("فونت Vazir.ttf یافت نشد. از فونت پیشفرض استفاده میشود.")
     main_font_path = None
@@ -724,6 +780,20 @@ music_button_states = {         # وضعیت فشرده شدن دکمهها بر
     'next': {'scale': 1.0, 'pressed': False},
     'prev': {'scale': 1.0, 'pressed': False}
 }
+# --- متغیرهای ترانزیشن بین آهنگ‌ها (iOS-like slide) ---
+music_transition = {
+    'active': False,
+    'direction': 0,      # +1 برای next, -1 برای prev
+    'progress': 0.0,     # 0 → 1
+    'duration': 0.35,    # ثانیه
+    'old_art': None,     # سطح کاور قدیم
+    'new_art': None,     # سطح کاور جدید
+    'old_track_name': '',
+    'new_track_name': '',
+    'old_track_index': -1,
+    'new_track_index': -1,
+    'start_time': 0.0,
+}
 is_scrubbing_active_anim = False # برای انیمیشن بزرگ شدن نوار هنگام لمس
 scrub_knob_scale = 1.0
 # (جدید) حالتهای پخش
@@ -731,11 +801,17 @@ music_shuffle = False   # پخش تصادفی
 music_repeat = 0        # 0: بدون تکرار، 1: تکرار پلیلیست، 2: تکرار یک آهنگ
 
 # (جدید) متغیرهای برنامه فایلها
-files_current_path = '.'  # مسیر فعلی که در حال نمایش است
-files_list = []           # لیست فایلها و پوشههای مسیر فعلی
+files_current_path = '.'
+files_list = []
 files_scroll_offset = 0.0
 target_files_scroll_offset = 0.0
+files_scroll_velocity = 0.0          # سرعت فعلی پیمایش (پیکسل بر فریم)
+files_scroll_friction = 0.92         # ضریب اصطکاک (کمتر=اصطکاک بیشتر)
 files_content_height = 0
+files_overscroll_resistance = 0.3    # مقاوت در برابر کشیدن بیش از حد
+files_is_user_scrolling = False      # آیا کاربر در حال اسکرول دستی است؟
+files_last_scroll_time = 0           # زمان آخرین اسکرول دستی
+files_scroll_active = True
 
 # متغیرهای برنامه مرورگر
 browser_url_input = "example.com"
@@ -1066,15 +1142,24 @@ def save_settings():
         'lock_screen_wallpaper_path': lock_screen_wallpaper_path,
         'is_depth_effect_enabled': is_depth_effect_enabled,
         'current_language': current_language, # (جدید) ذخیره زبان
+        'is_superisland_enabled': is_superisland_enabled,
     }
     try:
         with open('settings.json', 'w') as f: json.dump(settings_data, f, indent=4)
     except IOError as e: print(f"Error saving settings: {e}")
 
 def load_settings():
-    global is_dark_mode, theme_animation_progress, saved_light_wallpaper_top, saved_light_wallpaper_bottom, \
-           BG_TOP_COLOR, BG_BOTTOM_COLOR, lock_screen_style, dark_mode_switch_progress, wallpaper_path, current_wallpaper_image, \
-           lock_screen_wallpaper_path, current_lock_screen_wallpaper_image, is_depth_effect_enabled,current_language
+    saved_light_wallpaper_top = (240, 240, 240)   
+    saved_light_wallpaper_bottom = (200, 200, 200)
+    
+    # متغیرهای تصویر زمینه و تم به global اضافه شدند
+    global is_dark_mode, language, volume, brightness 
+    global is_superisland_enabled, superisland_switch_progress
+    global wallpaper_path, lock_screen_wallpaper_path, current_wallpaper_image, current_lock_screen_wallpaper_image
+    global BG_TOP_COLOR, BG_BOTTOM_COLOR, theme_animation_progress, dark_mode_switch_progress
+
+    settings_data = {}
+
     try:
         with open('settings.json', 'r') as f:
             settings_data = json.load(f)
@@ -1082,7 +1167,7 @@ def load_settings():
             lock_screen_style = settings_data.get('lock_screen_style', 'default')
             wallpaper_path = settings_data.get('wallpaper_path', None)
             lock_screen_wallpaper_path = settings_data.get('lock_screen_wallpaper_path', None)
-            is_depth_effect_enabled = settings_data.get('is_depth_effect_enabled', False) # (جدید)
+            is_depth_effect_enabled = settings_data.get('is_depth_effect_enabled', False)
             current_language = settings_data.get('current_language', 'fa')
             
             if wallpaper_path and os.path.exists(wallpaper_path):
@@ -1098,7 +1183,6 @@ def load_settings():
                 try:
                     loaded_image = pygame.image.load(lock_screen_wallpaper_path).convert()
                     current_lock_screen_wallpaper_image = pygame.transform.smoothscale(loaded_image, (SCREEN_WIDTH, SCREEN_HEIGHT))
-                    # (جدید) پردازش تصویر عمقی هنگام بارگذاری
                     if is_depth_effect_enabled:
                         process_depth_effect_image(current_lock_screen_wallpaper_image)
                 except pygame.error as e:
@@ -1118,6 +1202,8 @@ def load_settings():
                 dark_mode_switch_progress = 0.0
     except (FileNotFoundError, json.JSONDecodeError): pass
 
+    is_superisland_enabled = settings_data.get('is_superisland_enabled', False)
+    superisland_switch_progress = 1.0 if is_superisland_enabled else 0.0
 
 def save_notes():
     try:
@@ -1132,34 +1218,42 @@ def load_notes():
     except FileNotFoundError: notes_text = "اینجا بنویسید..."
 
 def get_track_info(filepath):
-    if not mutagen_available:
-        return 0, None
     length = 0
     art_surface = None
-    try:
-        if filepath.lower().endswith('.mp3'):
-            audio = mutagen.mp3.MP3(filepath)
-            tags = ID3(filepath)
-            for key in tags:
-                if key.startswith('APIC'):
-                    apic = tags[key]
-                    image_data = apic.data
-                    try:
-                        image_file = io.BytesIO(image_data)
-                        art_surface = pygame.image.load(image_file).convert_alpha()
-                        break
-                    except pygame.error as e:
-                        print(f"Could not load album art: {e}")
-        elif filepath.lower().endswith('.wav'):
-            audio = mutagen.wave.WAVE(filepath)
-        elif filepath.lower().endswith('.ogg'):
-            audio = mutagen.oggvorbis.OggVorbis(filepath)
-        else:
-            return 0, None
-        length = audio.info.length
-    except Exception as e:
-        print(f"Error reading audio file metadata for {filepath}: {e}")
-        return 0, None
+    
+    if mutagen_available:
+        try:
+            if filepath.lower().endswith('.mp3'):
+                audio = mutagen.mp3.MP3(filepath)
+                tags = ID3(filepath)
+                for key in tags:
+                    if key.startswith('APIC'):
+                        apic = tags[key]
+                        image_data = apic.data
+                        try:
+                            image_file = io.BytesIO(image_data)
+                            art_surface = pygame.image.load(image_file).convert_alpha()
+                            break
+                        except pygame.error as e:
+                            print(f"Could not load album art: {e}")
+                length = audio.info.length
+            elif filepath.lower().endswith('.wav'):
+                audio = mutagen.wave.WAVE(filepath)
+                length = audio.info.length
+            elif filepath.lower().endswith('.ogg'):
+                audio = mutagen.oggvorbis.OggVorbis(filepath)
+                length = audio.info.length
+        except Exception as e:
+            print(f"Error reading audio metadata for {filepath}: {e}")
+
+    # --- رفع باگ زمان: استفاده از موتور Pygame به عنوان پشتیبان ---
+    if length == 0:
+        try:
+            sound = pygame.mixer.Sound(filepath)
+            length = sound.get_length()
+        except Exception as e:
+            print(f"Pygame fallback length error: {e}")
+
     return length, art_surface
 
 def load_music_files():
@@ -1233,6 +1327,137 @@ load_language_data()
 # --------------------------
 #       توابع کمکی
 # --------------------------
+def developer_terminal_thread():
+    """ترمینال پیشرفته توسعه دهنده با قابلیت Root"""
+    global is_developer_mode, running, is_root_enabled
+    print("\n" + "="*45)
+    print(" 🛠️ ParsOS Developer Terminal Activated")
+    print(" Type 'help' to see available commands.")
+    print("="*45 + "\n")
+    
+    while is_developer_mode and running:
+        try:
+            # تغییر ظاهر خط فرمان در صورت فعال بودن روت
+            prompt = "ParsOS-ROOT# " if is_root_enabled else "ParsOS-Dev> "
+            cmd_line = input(prompt).strip()
+            if not cmd_line: continue
+            
+            cmd_parts = cmd_line.split()
+            cmd = cmd_parts[0].lower()
+            args = cmd_parts[1:]
+            
+            if cmd == 'help':
+                print("دستورات در دسترس:")
+                print("  reboot       : راه‌اندازی مجدد سیستم")
+                print("  shutdown     : خاموش کردن سیستم")
+                print("  notdev       : غیرفعال کردن حالت توسعه دهنده")
+                print("  info         : نمایش اطلاعات سیستم")
+                print("  time         : نمایش ساعت و تاریخ فعلی")
+                print("  mkdir <name> : ساخت پوشه جدید")
+                print("  deldir <name>: حذف کامل یک پوشه (نیازمند Root)")
+                print("  enable_root  : فعال‌سازی دسترسی ریشه (سوپریوزر)")
+                print("  disable_root : لغو دسترسی ریشه")
+                
+            elif cmd == 'enable_root':
+                if is_root_enabled:
+                    print("Root is already enabled.")
+                else:
+                    confirm = input("WARNING: Root access allows deep system modifications. Continue? (y/n): ").strip().lower()
+                    if confirm == 'y':
+                        is_root_enabled = True
+                        print("ROOT mode activated. Proceed with caution.")
+                    else:
+                        print("Operation aborted.")
+                        
+            elif cmd == 'disable_root':
+                is_root_enabled = False
+                print("ROOT mode deactivated.")
+                
+            elif cmd == 'time':
+                print(f"Current System Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                
+            elif cmd == 'mkdir':
+                if args:
+                    folder_name = " ".join(args)
+                    os.makedirs(folder_name, exist_ok=True)
+                    print(f"Directory '{folder_name}' created successfully.")
+                else:
+                    print("Usage: mkdir <directory_name>")
+                    
+            elif cmd == 'deldir':
+                if not is_root_enabled:
+                    print("Permission Denied: Root access required! Type 'enable_root' first.")
+                elif args:
+                    folder_name = " ".join(args)
+                    try:
+                        shutil.rmtree(folder_name)
+                        print(f"Directory '{folder_name}' and all its contents deleted.")
+                    except Exception as e:
+                        print(f"Error deleting directory: {e}")
+                else:
+                    print("Usage: deldir <directory_name>")
+                    
+            elif cmd == 'reboot':
+                print("Rebooting ParsOS...")
+                running = False
+                os.execv(sys.executable, ['python'] + sys.argv)
+            elif cmd == 'shutdown':
+                print("Shutting down ParsOS...")
+                running = False
+            elif cmd == 'notdev':
+                print("Developer mode deactivated.")
+                is_developer_mode = False
+            elif cmd == 'info':
+                print("ParsOS NEXT v1.0 - Terminal Info")
+                if psutil:
+                    print(f"CPU Usage: {psutil.cpu_percent()}%")
+                    print(f"Memory: {psutil.virtual_memory().percent}%")
+            else:
+                print(f"Command not found: '{cmd}'.")
+                
+        except EOFError:
+            break
+        except Exception as e:
+            print(f"Terminal error: {e}")
+
+def ios_spring_curve(t):
+    # پارامترهای تقریبی فنر (overshoot ~ 0.1 و settle سریع)
+    if t <= 0: return 0
+    if t >= 1: return 1
+    # در بازه اول کمی جلوتر از هدف می‌رود
+    if t < 0.7:
+        return 1.2 * t - 0.2 * t**2   # overshoot در t ≈ 0.6 به 1.05 می‌رسد
+    else:
+        # برگشت نرم به 1
+        u = (t - 0.7) / 0.3
+        return 1.0 + (0.05 * (1 - u)) * (1 - u)
+
+def spring_lerp(current, target, dt, speed=18.0):
+    """حرکت فنری و نرم مستقل از فریم ریت (مشابه انیمیشن‌های اپل)"""
+    return current + (target - current) * (1.0 - math.exp(-speed * dt))
+    
+def cache_file_item_surfaces(item):
+    """سطوح متنی نام و متادیتا را یک بار رندر کرده و در آیتم ذخیره می‌کند."""
+    # اطمینان از وجود کلیدها (در صورت فراخوانی با داده‌های قدیمی)
+    if 'name_surf' not in item:
+        item['name_surf'] = None
+    if 'meta_surf' not in item:
+        item['meta_surf'] = None
+
+    if item['name_surf'] is not None:  # قبلاً کش شده
+        return
+
+    name_font = mf(17)
+    meta_font = mf(11)
+    text_color = get_current_color('settings_title')
+    sub_text_color = (150, 150, 150) if not is_dark_mode else (160, 160, 165)
+    display_name = item['name']
+    if len(display_name) > 26:
+        display_name = display_name[:24] + "…"
+    item['name_surf'] = render_persian_text(display_name, name_font, text_color)
+    meta_text = f"{item.get('date','—')}   {item.get('size','—')}"
+    item['meta_surf'] = render_persian_text(meta_text, meta_font, sub_text_color)
+
 def ios_ease(t):
     """
     منحنی حرکت مشابه iOS (Quintic Ease Out)
@@ -1257,8 +1482,8 @@ def get_app_snapshot(app_name, app_page):
         else: draw_settings_main_screen(temp_surf)
         
     elif app_name == 'notes':
-        if app_page == 'notes_main': draw_notes_app_screen(temp_surf)
-        else: draw_notes_app_screen(temp_surf)
+        if app_name == 'notes':
+            notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context)
         
     elif app_name == 'music': draw_music_app_screen(temp_surf)
     elif app_name == 'browser': draw_browser_app_screen(temp_surf)
@@ -1277,61 +1502,7 @@ def get_app_snapshot(app_name, app_page):
         
     return temp_surf
 
-def scan_directory(path):
-    items = []
-    try:
-        # دریافت لیست فایلها
-        entries = os.listdir(path)
-        
-        for name in entries:
-            full_path = os.path.join(path, name)
-            if name.startswith('.'): continue # نادیده گرفتن فایلهای سیستمی
-            
-            # مقادیر پیشفرض
-            size_str = "-"
-            date_str = "-"
-            raw_size = 0
-            
-            # تلاش برای دریافت اطلاعات فایل
-            try:
-                stats = os.stat(full_path)
-                # استفاده از تابع format_bytes که در پاسخ قبلی بود
-                # اگر format_bytes را ندارید، همینجا تعریف سادهای میکنیم:
-                sz = stats.st_size
-                if sz < 1024: size_str = f"{sz} B"
-                elif sz < 1024**2: size_str = f"{sz/1024:.1f} KB"
-                else: size_str = f"{sz/(1024**2):.1f} MB"
-                
-                date_str = datetime.datetime.fromtimestamp(stats.st_mtime).strftime('%Y/%m/%d')
-                raw_size = stats.st_size
-            except Exception as e:
-                print(f"Meta error for {name}: {e}")
 
-            if os.path.isdir(full_path):
-                items.append({
-                    'name': name, 'type': 'dir', 'path': full_path, 
-                    'size': 'Folder', 'date': date_str, 'raw_size': 0
-                })
-            else:
-                ext = name.split('.')[-1].lower()
-                if ext in ['txt', 'md', 'py', 'json']: f_type = 'text'
-                elif ext == 'prs': f_type = 'app_package'
-                elif ext in ['mp3', 'wav', 'ogg']: f_type = 'music'
-                elif ext in ['png', 'jpg', 'jpeg']: f_type = 'image'
-                else: f_type = 'file'
-                
-                items.append({
-                    'name': name, 'type': f_type, 'path': full_path,
-                    'size': size_str, 'date': date_str, 'raw_size': raw_size
-                })
-        
-        # مرتبسازی: اول پوشهها، سپس فایلها
-        items.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
-        
-    except Exception as e:
-        print(f"Error scanning directory {path}: {e}")
-        items.append({'name': "Error reading folder", 'type': 'error', 'path': '', 'size': '-', 'date': '-'})
-    return items
 
 def format_bytes(size):
     # تبدیل بایت به کیلوبایت و مگابایت
@@ -1603,6 +1774,9 @@ def install_prs_app(prs_path):
                 if app_type == 'native':
                     if all([app_id, app_name, main_file]):
                         is_valid = True
+                elif app_type == 'remote':
+                    if all([app_id, app_name, main_file]):  # main_file ورودی برنامه
+                        is_valid = True
                 else: # integrated
                     if all([app_id, app_name, main_file, main_class]):
                         is_valid = True
@@ -1688,6 +1862,8 @@ def render_persian_text(text, font, color, is_note=False):
     if not text: return font.render("", True, color)
     return font.render(get_display(arabic_reshaper.reshape(text)), True, color)
 
+notes_app = NotesApp(sc, mf, get_current_color, render_persian_text)
+
 def draw_gradient_background(surface, top_color, bottom_color):
     height = surface.get_height()
     for y in range(height):
@@ -1698,12 +1874,11 @@ def draw_gradient_background(surface, top_color, bottom_color):
         pygame.draw.line(surface, (r, g, b), (0, y), (surface.get_width(), y))
 
 def draw_main_background(surface):
-    if current_wallpaper_image and not is_dark_mode:
+    if current_wallpaper_image:
         surface.blit(current_wallpaper_image, (0, 0))
     else:
-        top = DARK_MODE_BG_TOP if is_dark_mode else BG_TOP_COLOR
-        bottom = DARK_MODE_BG_BOTTOM if is_dark_mode else BG_BOTTOM_COLOR
-        draw_gradient_background(surface, top, bottom)
+        # همیشه گرادیان انتخابی کاربر نمایش داده شود، حتی در حالت تاریک
+        draw_gradient_background(surface, saved_light_wallpaper_top, saved_light_wallpaper_bottom)
 
 def draw_rounded_rect(surface, rect, color, corner_radius):
     if corner_radius < 0: corner_radius = 0
@@ -1748,14 +1923,14 @@ def get_grid_pos(pos, item_being_dragged=None):
 
     return int(final_row), int(final_col)
 
-def apply_gaussian_blur(surface, iterations=10, scale_factor=4):
-    """Gaussian blur چندمرحله‌ای نرم - هر چه iterations بیشتر، blur قوی‌تر"""
+def apply_gaussian_blur(surface, iterations=18, scale_factor=5):
+    """Gaussian blur چندمرحله‌ای نرم - iterations بیشتر = مات‌تر"""
     width, height = surface.get_size()
-    if width < 1 or height < 1: return surface
-    # blur چندمرحله‌ای: هر بار یک scale_factor کوچک‌تر تا blur عمیق‌تری ایجاد شود
+    if width < 1 or height < 1:
+        return surface
     result = surface.copy()
     for i in range(iterations):
-        factor = scale_factor + (i % 3)  # factor را کمی متغیر می‌کنیم
+        factor = scale_factor + (i % 3)
         sw = max(1, width // factor)
         sh = max(1, height // factor)
         small = pygame.transform.smoothscale(result, (sw, sh))
@@ -1770,61 +1945,238 @@ def create_charging_particle():
     else: pos = [-10, random.randint(0, SCREEN_HEIGHT)]
     return {'pos': pos, 'radius': random.randint(3, 10), 'speed': random.uniform(1.5, 3.5)}
 
+def start_music_transition(direction):
+    """آماده‌سازی ترانزیشن بین دو آهنگ"""
+    global music_transition, current_track_index, music_track_name, current_album_art_surface
+    global cached_blurred_bg, last_played_track_name, music_art_scale, target_music_art_scale
+    global music_playback_start_time_offset   # <-- اضافه شد
+
+    if music_transition['active']:
+        return
+
+    if not music_playlist:
+        return
+
+    # ذخیره اطلاعات آهنگ فعلی
+    music_transition['old_art'] = current_album_art_surface
+    music_transition['old_track_name'] = music_track_name
+    music_transition['old_track_index'] = current_track_index
+    music_transition['direction'] = direction
+
+    # تعیین آهنگ جدید
+    new_index = current_track_index
+    if direction == 1:   # next
+        if music_repeat == 2:
+            new_index = current_track_index
+        elif music_shuffle:
+            new_index = random.randint(0, len(music_playlist)-1)
+        else:
+            new_index = (current_track_index + 1) % len(music_playlist)
+    else:                # prev
+        if music_repeat == 2:
+            new_index = current_track_index
+        elif music_shuffle:
+            new_index = random.randint(0, len(music_playlist)-1)
+        else:
+            new_index = (current_track_index - 1 + len(music_playlist)) % len(music_playlist)
+
+    if new_index == current_track_index and not (direction == 1 and music_repeat == 2):
+        return
+
+    music_transition['new_track_index'] = new_index
+    music_transition['new_track_name'] = os.path.basename(music_playlist[new_index])
+
+    new_length, new_art = get_track_info(music_playlist[new_index])
+    music_transition['new_art'] = new_art
+
+    # تغییر پخش صدا
+    pygame.mixer.music.load(music_playlist[new_index])
+    pygame.mixer.music.play()
+    current_track_length = new_length
+    current_album_art_surface = new_art
+    music_track_name = music_transition['new_track_name']
+    music_playback_start_time_offset = 0.0   # ریست offset
+    cached_blurred_bg = None
+
+    # شروع انیمیشن
+    music_transition['active'] = True
+    music_transition['progress'] = 0.0
+    music_transition['start_time'] = time.time()
+    target_music_art_scale = 1.0
+    music_art_scale = 1.0
+
 def play_next_song():
-    global current_track_index, music_track_name, is_music_playing, is_music_paused
+    global current_track_index, is_music_playing, is_music_paused
     global current_track_length, current_album_art_surface, music_playback_start_time_offset
     global cached_blurred_bg
-    if not music_playlist: return
-    if music_repeat == 2:
-        # تکرار همین آهنگ
-        pass
-    elif music_shuffle:
-        import random as _rnd
-        current_track_index = _rnd.randint(0, len(music_playlist) - 1)
-    else:
-        if current_track_index >= len(music_playlist) - 1:
-            if music_repeat == 1:
-                current_track_index = 0
-            else:
-                is_music_playing = False
-                return
-        else:
-            current_track_index += 1
-    pygame.mixer.music.load(music_playlist[current_track_index])
-    current_track_length, current_album_art_surface = get_track_info(music_playlist[current_track_index])
-    pygame.mixer.music.play()
-    music_track_name = os.path.basename(music_playlist[current_track_index])
-    is_music_playing, is_music_paused = True, False
-    music_playback_start_time_offset = 0
-    cached_blurred_bg = None
+    if not music_playlist:
+        return
+    start_music_transition(1)
 
 def play_previous_song():
     global current_track_index, music_track_name, is_music_playing, is_music_paused
     global current_track_length, current_album_art_surface, music_playback_start_time_offset
     global cached_blurred_bg
-    if not music_playlist: return
-    # اگر بیش از ۳ ثانیه از آهنگ گذشته، برو به ابتدا
+    if not music_playlist:
+        return
+    # محاسبه موقعیت فعلی آهنگ
     current_pos = music_playback_start_time_offset + pygame.mixer.music.get_pos() / 1000.0
     if current_pos > 3.0:
         pygame.mixer.music.play(start=0)
         music_playback_start_time_offset = 0
         return
-    if music_shuffle:
-        import random as _rnd
-        current_track_index = _rnd.randint(0, len(music_playlist) - 1)
+    start_music_transition(-1)
+
+def toggle_music_play_pause():
+    """تغییر وضعیت پخش/توقف موسیقی"""
+    global is_music_playing, is_music_paused, music_playback_start_time_offset
+    if not music_playlist:
+        return
+    if is_music_playing:
+        pygame.mixer.music.pause()
+        is_music_paused = True
+        is_music_playing = False
+    elif is_music_paused:
+        pygame.mixer.music.unpause()
+        is_music_paused = False
+        is_music_playing = True
     else:
-        current_track_index = (current_track_index - 1 + len(music_playlist)) % len(music_playlist)
-    pygame.mixer.music.load(music_playlist[current_track_index])
-    current_track_length, current_album_art_surface = get_track_info(music_playlist[current_track_index])
-    pygame.mixer.music.play()
-    music_track_name = os.path.basename(music_playlist[current_track_index])
-    is_music_playing, is_music_paused = True, False
-    music_playback_start_time_offset = 0
-    cached_blurred_bg = None
+        # حالت توقف کامل (هیچ چیزی پخش نمی‌شود)
+        pygame.mixer.music.play()
+        music_playback_start_time_offset = 0
+        is_music_playing = True
+        is_music_paused = False
 
 # -----------------------------------
 #      توابع رسم صفحات و عناصر
 # -----------------------------------
+def draw_superisland(surface):
+    global superisland_state, superisland_anim_progress, superisland_expand_progress
+    global is_music_playing, is_music_paused, music_track_name
+
+    if not is_superisland_enabled:
+        return {}
+
+    has_media = (is_music_playing or is_music_paused) and music_playlist
+
+    # منطق ماشین وضعیت (State Machine)
+    if has_media and superisland_state == 'hidden':
+        superisland_state = 'capsule'
+    elif not has_media and superisland_state != 'hidden' and superisland_state != 'expanded':
+        superisland_state = 'hidden'
+
+    # پیشرفت انیمیشن‌ها
+    target_anim = 1.0 if superisland_state != 'hidden' else 0.0
+    superisland_anim_progress += (target_anim - superisland_anim_progress) * 0.15
+    
+    target_expand = 1.0 if superisland_state == 'expanded' else 0.0
+    superisland_expand_progress += (target_expand - superisland_expand_progress) * 0.18
+
+    if superisland_anim_progress < 0.01:
+        return {}
+
+    # ابعاد پایه کپسول و مستطیل
+    cap_w, cap_h = 120, 34
+    exp_w, exp_h = SCREEN_WIDTH - 24, 180
+    
+    # ابعاد فعلی بر اساس پیشرفت انیمیشن
+    current_w = cap_w + (exp_w - cap_w) * superisland_expand_progress
+    current_h = cap_h + (exp_h - cap_h) * superisland_expand_progress
+    
+    # موقعیت (انیمیشن پایین آمدن نرم)
+    y_offset = -50 * (1 - superisland_anim_progress)
+    island_rect = pygame.Rect(0, 0, current_w, current_h)
+    island_rect.centerx = SCREEN_WIDTH / 2
+    island_rect.top = 10 + y_offset
+
+    # رسم بدنه مشکی جزیره
+    island_surf = pygame.Surface((current_w, current_h), pygame.SRCALPHA)
+    radius = int(min(current_h / 2, 35 - 10 * superisland_expand_progress))
+    draw_rounded_rect(island_surf, island_surf.get_rect(), (0, 0, 0), radius)
+
+    buttons = {'si_main': island_rect}
+
+    if has_media:
+        # ---- حالت کپسول (Capsule Mode) ----
+        if superisland_expand_progress < 0.5:
+            alpha = int((1 - superisland_expand_progress * 2) * 255)
+            # کاور کوچک سمت چپ
+            if current_album_art_surface:
+                art_small = pygame.transform.smoothscale(current_album_art_surface, (24, 24))
+                art_surf = pygame.Surface((24, 24), pygame.SRCALPHA)
+                draw_rounded_rect(art_surf, art_surf.get_rect(), (255, 255, 255), 6)
+                art_surf.blit(art_small, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                art_surf.set_alpha(alpha)
+                island_surf.blit(art_surf, (8, 5))
+            
+            # اکولایزر یا متن کوچک
+            if is_music_playing:
+                # انیمیشن ساده اکولایزر
+                for i in range(3):
+                    h = 4 + abs(math.sin(time.time() * 5 + i)) * 10
+                    eq_rect = pygame.Rect(current_w - 25 + i * 5, 17 - h/2, 3, h)
+                    s = pygame.Surface((3, h), pygame.SRCALPHA)
+                    s.fill((255, 255, 255, alpha))
+                    island_surf.blit(s, eq_rect.topleft)
+
+        # ---- حالت گسترش‌یافته (Expanded Mode) ----
+        if superisland_expand_progress > 0.2:
+            alpha = int(((superisland_expand_progress - 0.2) / 0.8) * 255)
+            text_col = (255, 255, 255, alpha)
+            
+            # کاور آلبوم بزرگ
+            art_size = 60
+            if current_album_art_surface:
+                art_big = pygame.transform.smoothscale(current_album_art_surface, (art_size, art_size))
+                art_surf_b = pygame.Surface((art_size, art_size), pygame.SRCALPHA)
+                draw_rounded_rect(art_surf_b, art_surf_b.get_rect(), (255, 255, 255), 12)
+                art_surf_b.blit(art_big, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                art_surf_b.set_alpha(alpha)
+                island_surf.blit(art_surf_b, (20, 20))
+            
+            # نام آهنگ
+            track_name = os.path.splitext(music_track_name)[0]
+            if len(track_name) > 20: track_name = track_name[:17] + "..."
+            t_font = mf(16)
+            name_s = render_persian_text(track_name, t_font, WHITE)
+            name_s.set_alpha(alpha)
+            island_surf.blit(name_s, (95, 25))
+            
+            # دکمه‌های کنترل
+            btn_y = current_h - 45
+            center_x = current_w / 2
+            
+            # استایل مدرن دکمه‌ها
+            btn_size = 38
+            btn_radius = btn_size // 2
+            bg_col = (255, 255, 255, int(alpha * 0.15))
+            
+            # دکمه قبلی
+            prev_rect = pygame.Rect(center_x - 65, btn_y, btn_size, btn_size)
+            pygame.draw.circle(island_surf, bg_col, prev_rect.center, btn_radius)
+            pygame.draw.polygon(island_surf, text_col, [(prev_rect.centerx + 4, prev_rect.centery - 8), (prev_rect.centerx + 4, prev_rect.centery + 8), (prev_rect.centerx - 6, prev_rect.centery)])
+            pygame.draw.rect(island_surf, text_col, (prev_rect.centerx - 8, prev_rect.centery - 8, 3, 16), border_radius=1)
+            buttons['si_prev'] = prev_rect.move(island_rect.topleft)
+            
+            # دکمه پخش/توقف
+            play_rect = pygame.Rect(center_x - 19, btn_y, btn_size, btn_size)
+            pygame.draw.circle(island_surf, bg_col, play_rect.center, btn_radius)
+            if is_music_playing:
+                pygame.draw.rect(island_surf, text_col, (play_rect.centerx - 6, play_rect.centery - 8, 4, 16), border_radius=1)
+                pygame.draw.rect(island_surf, text_col, (play_rect.centerx + 2, play_rect.centery - 8, 4, 16), border_radius=1)
+            else:
+                pygame.draw.polygon(island_surf, text_col, [(play_rect.centerx - 4, play_rect.centery - 9), (play_rect.centerx - 4, play_rect.centery + 9), (play_rect.centerx + 7, play_rect.centery)])
+            buttons['si_play'] = play_rect.move(island_rect.topleft)
+            
+            # دکمه بعدی
+            next_rect = pygame.Rect(center_x + 27, btn_y, btn_size, btn_size)
+            pygame.draw.circle(island_surf, bg_col, next_rect.center, btn_radius)
+            pygame.draw.polygon(island_surf, text_col, [(next_rect.centerx - 4, next_rect.centery - 8), (next_rect.centerx - 4, next_rect.centery + 8), (next_rect.centerx + 6, next_rect.centery)])
+            pygame.draw.rect(island_surf, text_col, (next_rect.centerx + 5, next_rect.centery - 8, 3, 16), border_radius=1)
+            buttons['si_next'] = next_rect.move(island_rect.topleft)
+
+    surface.blit(island_surf, island_rect.topleft)
+    return buttons
 # (جدید) تابع رسم ویجت ساعت
 def draw_clock_widget(surface, rect):
     """ویجت ساعت آنالوگ را مطابق با نمونه تصویر، روی سطح ورودی رسم میکند."""
@@ -2197,29 +2549,77 @@ def draw_installed_app_screen(surface):
 def scan_directory(path):
     items = []
     try:
-        for name in sorted(os.listdir(path)):
+        entries = os.listdir(path)
+        for name in entries:
             full_path = os.path.join(path, name)
-            # از نمایش فایلهای مخفی (که با . شروع میشوند) خودداری کن
             if name.startswith('.'):
                 continue
-            if os.path.isdir(full_path):
-                items.append({'name': name, 'type': 'dir', 'path': full_path})
-            else:
-                ext = name.split('.')[-1].lower()
-                if ext in ['txt', 'md']:
-                    file_type = 'text'
-                elif ext == 'prs':
-                    file_type = 'app_package'
-                elif ext in ['mp3', 'wav', 'ogg']:
-                    file_type = 'music'
-                elif ext in ['png', 'jpg', 'jpeg', 'bmp']:
-                    file_type = 'image'
+
+            size_str = "-"
+            date_str = "-"
+            raw_size = 0
+            try:
+                stats = os.stat(full_path)
+                sz = stats.st_size
+                if sz < 1024:
+                    size_str = f"{sz} B"
+                elif sz < 1024**2:
+                    size_str = f"{sz/1024:.1f} KB"
                 else:
-                    file_type = 'file'
-                items.append({'name': name, 'type': file_type, 'path': full_path})
+                    size_str = f"{sz/(1024**2):.1f} MB"
+                date_str = datetime.datetime.fromtimestamp(stats.st_mtime).strftime('%Y/%m/%d')
+                raw_size = stats.st_size
+            except:
+                pass
+
+            if os.path.isdir(full_path):
+                items.append({
+                    'name': name,
+                    'type': 'dir',
+                    'path': full_path,
+                    'size': 'Folder',
+                    'date': date_str,
+                    'raw_size': 0,
+                    'name_surf': None,   # برای کش سطح نام
+                    'meta_surf': None    # برای کش سطح متادیتا
+                })
+            else:
+                ext = name.split('.')[-1].lower() if '.' in name else ''
+                if ext in ['txt', 'md', 'py', 'json']:
+                    f_type = 'text'
+                elif ext == 'prs':
+                    f_type = 'app_package'
+                elif ext in ['mp3', 'wav', 'ogg']:
+                    f_type = 'music'
+                elif ext in ['png', 'jpg', 'jpeg', 'bmp']:
+                    f_type = 'image'
+                else:
+                    f_type = 'file'
+                items.append({
+                    'name': name,
+                    'type': f_type,
+                    'path': full_path,
+                    'size': size_str,
+                    'date': date_str,
+                    'raw_size': raw_size,
+                    'name_surf': None,
+                    'meta_surf': None
+                })
+
+        # مرتب‌سازی: اول پوشه‌ها، سپس فایل‌ها
+        items.sort(key=lambda x: (x['type'] != 'dir', x['name'].lower()))
+
     except Exception as e:
         print(f"Error scanning directory {path}: {e}")
-        items.append({'name': f"Error: {e}", 'type': 'error', 'path': ''})
+        items.append({
+            'name': "Error",
+            'type': 'error',
+            'path': '',
+            'size': '-',
+            'date': '-',
+            'name_surf': None,
+            'meta_surf': None
+        })
     return items
 
 # (جدید) تابع اصلی برای رسم صفحه برنامه فایلها
@@ -2725,99 +3125,132 @@ def draw_messenger_app(surface):
 
 
 def draw_files_app_screen(surface):
-    global files_content_height, files_list, files_scroll_offset
-    
+    global files_content_height, files_list
+    global files_scroll_offset, target_files_scroll_offset
+    global files_scroll_velocity, files_is_user_scrolling
+    global files_overscroll_resistance, files_scroll_friction
+    global files_last_scroll_time
+
+    # ---- مدیریت اسکرول اینرسی ----
+    if not files_is_user_scrolling:
+        # اعمال سرعت (اینرسی)
+        if abs(files_scroll_velocity) > 0.1:
+            target_files_scroll_offset += files_scroll_velocity
+            files_scroll_velocity *= files_scroll_friction
+        else:
+            files_scroll_velocity = 0.0
+
+    # بونس در لبه‌ها (Overscroll bounce)
+    max_scroll = max(0, files_content_height - (SCREEN_HEIGHT - 100))
+    if target_files_scroll_offset < -50:   # کشیدن بیش از حد بالا
+        overscroll = -target_files_scroll_offset - 50
+        target_files_scroll_offset += overscroll * 0.3
+        files_scroll_velocity = 0
+    elif target_files_scroll_offset > max_scroll + 50:  # کشیدن بیش از حد پایین
+        overscroll = target_files_scroll_offset - (max_scroll + 50)
+        target_files_scroll_offset -= overscroll * 0.3
+        files_scroll_velocity = 0
+
+    # لرپ نرم‌تر به target
+    files_scroll_offset += (target_files_scroll_offset - files_scroll_offset) * 0.18
+
+    # clamp نهایی با محدودیت نرم (اجازه کمی overscroll)
+    clamp_min = -50
+    clamp_max = max_scroll + 50
+    if files_scroll_offset < clamp_min:
+        files_scroll_offset = clamp_min
+    elif files_scroll_offset > clamp_max:
+        files_scroll_offset = clamp_max
+
+    # ---- رسم ----
     bg_color = get_current_color('files_bg')
     surface.fill(bg_color)
-    
+
     text_color = get_current_color('settings_title')
     sub_text_color = (150, 150, 150) if not is_dark_mode else (160, 160, 165)
     divider_color = (235, 235, 238) if not is_dark_mode else (48, 48, 56)
 
-    # اسکرول نرمتر
-    files_scroll_offset += (target_files_scroll_offset - files_scroll_offset) * 0.16
-    
     header_height = 100
     item_height = 66
     padding_side = 16
     icon_w = 42
-    
     start_y = header_height + 8
     clickable_rects = {}
-    
+
+    # ---- رسم آیتم‌ها ----
     for i, item in enumerate(files_list):
+        # کش کردن سطوح متنی اگر نشده
+        cache_file_item_surfaces(item)
+
         item_y = start_y + i * item_height - files_scroll_offset
-        
-        if item_y + item_height > 0 and item_y < SCREEN_HEIGHT:
+
+        # فقط آیتم‌های داخل ناحیه دید رسم شوند
+        if item_y + item_height > header_height and item_y < SCREEN_HEIGHT:
             row_rect = pygame.Rect(0, item_y, SCREEN_WIDTH, item_height)
-            
-            # افکت hover / کلیک فعال
-            if active_button_key == f"item_{i}":
-                hl_surf = pygame.Surface(row_rect.size, pygame.SRCALPHA)
-                hl_surf.fill((0, 0, 0, 18) if not is_dark_mode else (255, 255, 255, 12))
-                surface.blit(hl_surf, row_rect.topleft)
-            elif row_rect.collidepoint(pygame.mouse.get_pos()):
+
+            # افکت hover
+            if row_rect.collidepoint(pygame.mouse.get_pos()):
                 hov_surf = pygame.Surface(row_rect.size, pygame.SRCALPHA)
-                hov_surf.fill((0, 0, 0, 8) if not is_dark_mode else (255, 255, 255, 6))
+                hov_surf.fill((0, 0, 0, 12) if not is_dark_mode else (255, 255, 255, 8))
                 surface.blit(hov_surf, row_rect.topleft)
 
+            # اگر دکمه فعال بود (کلیک شده)
+            if active_button_key == f"item_{i}":
+                hl_surf = pygame.Surface(row_rect.size, pygame.SRCALPHA)
+                hl_surf.fill((0, 0, 0, 20) if not is_dark_mode else (255, 255, 255, 14))
+                surface.blit(hl_surf, row_rect.topleft)
+
+            # رسم آیکون مدرن (فقط یک بار، می‌توان در کش ذخیره کرد ولی کم‌حجم است)
             icon_rect = pygame.Rect(padding_side, item_y + (item_height - icon_w) / 2, icon_w, icon_w)
-            try:
-                draw_modern_file_icon(surface, icon_rect, item['type'])
-            except NameError:
-                pygame.draw.rect(surface, (100, 100, 100), icon_rect, border_radius=8)
+            draw_modern_file_icon(surface, icon_rect, item['type'])
 
-            name_font = mf(17)
-            display_name = item['name']
-            if len(display_name) > 26:
-                display_name = display_name[:24] + "…"
-            name_surf = render_persian_text(display_name, name_font, text_color)
-            surface.blit(name_surf, (icon_rect.right + 14, item_y + 11))
+            # رسم متن نام و متادیتا از سطوح کش‌شده
+            if item['name_surf']:
+                surface.blit(item['name_surf'], (icon_rect.right + 14, item_y + 11))
+            if item['meta_surf']:
+                surface.blit(item['meta_surf'], (icon_rect.right + 14, item_y + 38))
 
-            date_val = item.get('date', '—')
-            size_val = item.get('size', '—')
-            meta_font = mf(11)
-            meta_surf = render_persian_text(f"{date_val}   {size_val}", meta_font, sub_text_color)
-            surface.blit(meta_surf, (icon_rect.right + 14, item_y + 38))
-
-            # فلش دایرکتوری
+            # فلش برای دایرکتوری
             if item['type'] == 'dir':
                 arrow_font = mf(14)
                 arrow = arrow_font.render("›", True, sub_text_color)
                 surface.blit(arrow, arrow.get_rect(right=SCREEN_WIDTH - 16, centery=item_y + item_height // 2))
 
+            # خط جداکننده
             pygame.draw.line(surface, divider_color,
                              (icon_rect.right + 14, item_y + item_height - 1),
                              (SCREEN_WIDTH, item_y + item_height - 1))
-            
+
             clickable_rects[f"item_{i}"] = row_rect
 
+    # ---- محاسبه ارتفاع کل ----
     files_content_height = start_y + len(files_list) * item_height + 60
 
-    # پیام "خالی است"
+    # ---- پیام خالی بودن ----
     if not files_list:
         empty_font = mf(18)
         empty_surf = render_persian_text("این پوشه خالی است", empty_font, sub_text_color)
         surface.blit(empty_surf, empty_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)))
 
-    # هدر با blur effect و path breadcrumb
+    # ---- هدر با افکت شیشه‌ای ----
     header_surf = pygame.Surface((SCREEN_WIDTH, header_height), pygame.SRCALPHA)
     hdr_col = (252, 252, 252, 238) if not is_dark_mode else (28, 28, 34, 238)
     header_surf.fill(hdr_col)
-    
+
     back_btn_rect = None
     if files_current_path != '.':
-        back_btn_text = render_persian_text("< بازگشت", text_font, BLUE)
+        back_btn_text = render_persian_text("< بازگشت", text_font, (50, 150, 255))
         back_btn_rect = back_btn_text.get_rect(left=12, top=55)
         header_surf.blit(back_btn_text, back_btn_rect)
         clickable_rects['back_btn'] = back_btn_rect
 
+    # نمایش عنوان مسیر
     path_display = "حافظه داخلی" if files_current_path == '.' else os.path.basename(os.path.abspath(files_current_path))
     title_font = mf(24)
     title_surf = render_persian_text(path_display, title_font, get_current_color('settings_title'))
     header_surf.blit(title_surf, title_surf.get_rect(centerx=SCREEN_WIDTH / 2, top=54))
 
-    # تعداد آیتمها
+    # تعداد آیتم‌ها
     count_font = mf(12)
     count_surf = render_persian_text(f"{len(files_list)} آیتم", count_font, sub_text_color)
     header_surf.blit(count_surf, count_surf.get_rect(centerx=SCREEN_WIDTH / 2, top=title_surf.get_rect(centerx=SCREEN_WIDTH / 2, top=54).bottom + 2))
@@ -2828,9 +3261,9 @@ def draw_files_app_screen(surface):
     return clickable_rects
 
 def draw_control_center(surface, progress, vertical_offset=0.0):
-    """ (نسخه کاملاً بازطراحی شده) مرکز کنترل را شبیه به تصویر نمونه رسم میکند. """
-    global cc_buttons # برای دسترسی به rect های اسلایدر
-    
+    global cc_buttons, is_dark_mode, is_dragging_cc_content, cc_vertical_offset, target_cc_vertical_offset
+    global music_playlist, music_track_name, current_album_art_surface, is_music_playing, is_music_paused
+
     if progress <= 0:
         return
 
@@ -2838,7 +3271,6 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
         control_center_snapshot.set_alpha(int(progress * 255))
         surface.blit(control_center_snapshot, (0, 0))
 
-    # انیمیشن باز شدن (مانند قبل)
     ease_progress = 1 - (1 - progress) ** 4
     start_width, start_height = sc(50), sc(50)
     end_width, end_height = SCREEN_WIDTH - sc(20), SCREEN_HEIGHT - sc(100)
@@ -2850,14 +3282,11 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
     current_y = start_y + (end_y - start_y) * ease_progress + vertical_offset
 
     cc_rect = pygame.Rect(current_x, current_y, current_width, current_height)
-
-    # سطح اصلی CC با پسزمینه نیمهشفاف
     cc_surface = pygame.Surface(cc_rect.size, pygame.SRCALPHA)
     bg_color = (10, 10, 15, int(180 * progress)) if is_dark_mode else (250, 250, 255, int(180 * progress))
-    # draw_rounded_rect(cc_surface, cc_surface.get_rect(), bg_color, 25)
+    # draw_rounded_rect(cc_surface, cc_surface.get_rect(), bg_color, 25)  # غیرفعال در صورت نیاز
 
     if ease_progress > 0.8:
-        # آلفا برای محو شدن نرم محتوا
         content_alpha = (ease_progress - 0.8) / 0.2 * 255
         text_color = (*WHITE, content_alpha) if is_dark_mode else (*BLACK, content_alpha)
         sub_text_color = (*LIGHT_GRAY, content_alpha) if is_dark_mode else (*GRAY, content_alpha)
@@ -2902,11 +3331,88 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
         media_rect = pygame.Rect(widget_padding, current_y_pos, current_width - widget_padding*2, 80)
         media_color = (50, 50, 60, int(content_alpha * 0.8)) if is_dark_mode else (220, 220, 225, int(content_alpha * 0.8))
         draw_rounded_rect(cc_surface, media_rect, media_color, 20)
-        
-        media_text_surf = render_persian_text(get_string("no_playback_history"), status_bar_font, sub_text_color)
-        media_text_surf.set_alpha(content_alpha)
-        cc_surface.blit(media_text_surf, media_text_surf.get_rect(center=media_rect.center))
-        
+
+        # بررسی وجود موسیقی در حال پخش
+        if music_playlist and music_track_name != "موسیقی یافت نشد":
+            # ----- کاور کوچک -----
+            cover_size = 50
+            cover_rect = pygame.Rect(media_rect.left + 12, media_rect.centery - cover_size//2, cover_size, cover_size)
+            if current_album_art_surface:
+                art_small = pygame.transform.smoothscale(current_album_art_surface, (cover_size, cover_size))
+                rounded_cover = pygame.Surface((cover_size, cover_size), pygame.SRCALPHA)
+                draw_rounded_rect(rounded_cover, rounded_cover.get_rect(), (255, 255, 255), 10)
+                rounded_cover.blit(art_small, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                cc_surface.blit(rounded_cover, cover_rect.topleft)
+            else:
+                draw_rounded_rect(cc_surface, cover_rect, (100, 100, 110), 10)
+                icon_font = mf(20)
+                icon_s = icon_font.render("♪", True, (200,200,200))
+                icon_s.set_alpha(content_alpha)
+                cc_surface.blit(icon_s, icon_s.get_rect(center=cover_rect.center))
+
+            # ----- نام آهنگ -----
+            name_font = mf(14)
+            track_name_display = music_track_name
+            if len(track_name_display) > 28:
+                track_name_display = track_name_display[:25] + "..."
+            track_surf = render_persian_text(track_name_display, name_font, text_color)
+            track_surf.set_alpha(content_alpha)
+            cc_surface.blit(track_surf, track_surf.get_rect(left=cover_rect.right + 12, top=media_rect.top + 18))
+
+            # ----- نام خواننده (placeholder) -----
+            artist_font = mf(11)
+            artist_surf = render_persian_text("ParsOS Music", artist_font, sub_text_color)
+            artist_surf.set_alpha(content_alpha)
+            cc_surface.blit(artist_surf, artist_surf.get_rect(left=cover_rect.right + 12, top=track_surf.get_rect().bottom + 4))
+
+            # ----- دکمه‌های کنترلی (قبلی، پخش/توقف، بعدی) -----
+            btn_size = 36
+            btn_gap = 12
+            total_btns_width = btn_size * 3 + btn_gap * 2
+            btn_start_x = media_rect.right - total_btns_width - 12
+            btn_y = media_rect.centery - btn_size//2
+
+            prev_btn_rect = pygame.Rect(btn_start_x, btn_y, btn_size, btn_size)
+            play_btn_rect = pygame.Rect(prev_btn_rect.right + btn_gap, btn_y, btn_size, btn_size)
+            next_btn_rect = pygame.Rect(play_btn_rect.right + btn_gap, btn_y, btn_size, btn_size)
+
+            # ذخیره rectها برای تشخیص کلیک
+            cc_buttons['media_prev'] = {'rect': prev_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
+            cc_buttons['media_play'] = {'rect': play_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
+            cc_buttons['media_next'] = {'rect': next_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
+
+            # رسم دکمه‌ها
+            btn_bg_color = (80, 80, 90, int(content_alpha * 0.9)) if is_dark_mode else (200, 200, 210, int(content_alpha * 0.9))
+            btn_icon_color = WHITE if is_dark_mode else BLACK
+
+            # دکمه قبلی
+            pygame.draw.circle(cc_surface, btn_bg_color, prev_btn_rect.center, btn_size//2)
+            prev_icon = mf(16).render("◀", True, btn_icon_color)
+            prev_icon.set_alpha(content_alpha)
+            cc_surface.blit(prev_icon, prev_icon.get_rect(center=prev_btn_rect.center))
+
+            # دکمه پخش/توقف
+            pygame.draw.circle(cc_surface, btn_bg_color, play_btn_rect.center, btn_size//2)
+            if is_music_playing:
+                play_icon = mf(16).render("⏸", True, btn_icon_color)
+            else:
+                play_icon = mf(16).render("▶", True, btn_icon_color)
+            play_icon.set_alpha(content_alpha)
+            cc_surface.blit(play_icon, play_icon.get_rect(center=play_btn_rect.center))
+
+            # دکمه بعدی
+            pygame.draw.circle(cc_surface, btn_bg_color, next_btn_rect.center, btn_size//2)
+            next_icon = mf(16).render("▶", True, btn_icon_color)
+            next_icon = pygame.transform.flip(next_icon, True, False)
+            next_icon.set_alpha(content_alpha)
+            cc_surface.blit(next_icon, next_icon.get_rect(center=next_btn_rect.center))
+
+        else:
+            # اگر موسیقی در حال پخش نیست، پیام نمایش داده شود
+            media_text_surf = render_persian_text(get_string("no_playback_history"), status_bar_font, sub_text_color)
+            media_text_surf.set_alpha(content_alpha)
+            cc_surface.blit(media_text_surf, media_text_surf.get_rect(center=media_rect.center))
+
         current_y_pos += media_rect.height + widget_padding
 
         # --- 3. اسلایدرها (روشنایی و صدا) ---
@@ -4012,40 +4518,43 @@ def draw_icon_base(surface, icon, rect, scale=1.0, alpha=255):
 
 # (اصلاح شده) تابع رسم صفحه قفل با قابلیت جلوه عمق
 def draw_lock_screen(offset_y):
-    # رسم پسزمینه اصلی
     if current_lock_screen_wallpaper_image:
         screen.blit(current_lock_screen_wallpaper_image, (0, offset_y))
     else:
         draw_gradient_background(screen, (40, 0, 80), (10, 20, 100))
     
-    # رسم ساعت و تاریخ
     now = datetime.datetime.now()
     if lock_screen_style == 'default':
-        time_surf = clock_font.render("".join([persian_digits.get(c, c) for c in now.strftime("%H:%M")]), True, WHITE)
-        screen.blit(time_surf, time_surf.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 170 + offset_y)))
+        # استفاده از فونت بزرگ‌تر
+        time_surf = large_clock_font.render("".join([persian_digits.get(c, c) for c in now.strftime("%H:%M")]), True, WHITE)
+        # قرار دادن در مرکز دقیق صفحه (حذف -170)
+        screen.blit(time_surf, time_surf.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + offset_y - 40)))
+        
         date_surf = text_font.render(now.strftime("%A, %B %d"), True, WHITE)
-        screen.blit(date_surf, date_surf.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 100 + offset_y)))
+        screen.blit(date_surf, date_surf.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 + 60 + offset_y)))
+        
     elif lock_screen_style == 'bottom_right':
         time_surf = clock_font.render("".join([persian_digits.get(c, c) for c in now.strftime("%H:%M")]), True, WHITE)
-        time_rect = time_surf.get_rect(bottomright=(SCREEN_WIDTH - 30, SCREEN_HEIGHT - 80 + offset_y)); screen.blit(time_surf, time_rect)
+        time_rect = time_surf.get_rect(bottomright=(SCREEN_WIDTH - 30, SCREEN_HEIGHT - 80 + offset_y))
+        screen.blit(time_surf, time_rect)
         date_surf = text_font.render(now.strftime("%A, %B %d"), True, WHITE)
         screen.blit(date_surf, date_surf.get_rect(bottomright=(SCREEN_WIDTH - 30, time_rect.top - 5 + offset_y)))
+        
     elif lock_screen_style == 'stacked':
         hour_surf = clock_font.render("".join([persian_digits.get(c, c) for c in now.strftime("%H")]), True, WHITE)
         minute_surf = clock_font.render("".join([persian_digits.get(c, c) for c in now.strftime("%M")]), True, WHITE)
-        hour_rect = hour_surf.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 100 + offset_y))
+        hour_rect = hour_surf.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2 - 50 + offset_y))
         minute_rect = minute_surf.get_rect(center=(SCREEN_WIDTH/2, hour_rect.bottom + offset_y))
-        screen.blit(hour_surf, hour_rect); screen.blit(minute_surf, minute_rect)
+        screen.blit(hour_surf, hour_rect)
+        screen.blit(minute_surf, minute_rect)
         date_surf = text_font.render(now.strftime("%A, %B %d"), True, WHITE)
         screen.blit(date_surf, date_surf.get_rect(center=(SCREEN_WIDTH/2, minute_rect.bottom + 40 + offset_y)))
 
-    # (جدید) رسم لایه سوژه برای جلوه عمق
     if is_depth_effect_enabled and current_lock_screen_subject_image:
         screen.blit(current_lock_screen_subject_image, (0, offset_y))
 
     swipe_text = render_persian_text("برای باز کردن، به بالا بکشید", text_font, LIGHT_GRAY)
     screen.blit(swipe_text, swipe_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 50 + offset_y)))
-
 
 def draw_home_screen_content(surface, offset, scale=1.0, alpha=255, is_folder_view_active=False):
     surface.fill((0, 0, 0, 0))
@@ -4111,47 +4620,39 @@ def draw_home_screen_content(surface, offset, scale=1.0, alpha=255, is_folder_vi
     return surface, surface.get_rect(topleft=(0,0))
 
 def draw_home_screen_static_elements():
-    # --- ساخت داک با Gaussian blur واقعی ---
     final_dock_surface = pygame.Surface(dock_rect.size, pygame.SRCALPHA)
 
-    # گرفتن محتوای پشت داک از صفحه (که قبلاً رسم شده)
     try:
-        dock_bg_capture = screen.subsurface(dock_rect).copy()
-        # Gaussian blur قوی چندمرحله‌ای
+        # کپی گرفتن و حذف کانال آلفا برای جلوگیری از باگ شفافیت
+        dock_bg_capture = screen.subsurface(dock_rect).copy().convert()
         w, h = dock_bg_capture.get_size()
-        # مرحله ۱
-        s1 = pygame.transform.smoothscale(dock_bg_capture, (max(1, w // 5), max(1, h // 5)))
-        # مرحله ۲
-        s2 = pygame.transform.smoothscale(s1, (max(1, w // 12), max(1, h // 12)))
-        # مرحله ۳: برگشت به اندازه اصلی
-        blurred = pygame.transform.smoothscale(s2, (w, h))
+        
+        # مقیاس بسیار کوچک برای ایجاد تاری شدید (مقیاس ۱ به ۱۵)
+        sw, sh = max(1, w // 15), max(1, h // 15)
+        s1 = pygame.transform.smoothscale(dock_bg_capture, (sw, sh))
+        blurred = pygame.transform.smoothscale(s1, (w, h))
+        
     except (ValueError, Exception):
-        # Fallback: از wallpaper blur بگیریم
         blurred = pygame.Surface(dock_rect.size)
-        draw_main_background(blurred)
-        s = pygame.transform.smoothscale(blurred, (max(1, dock_rect.width // 10), max(1, dock_rect.height // 10)))
-        blurred = pygame.transform.smoothscale(s, dock_rect.size)
+        blurred.fill((50, 50, 50))
 
     final_dock_surface.blit(blurred, (0, 0))
 
-    # لایه شیشه‌ای نیم‌شفاف
-    overlay_color = (255, 255, 255, 55) if not is_dark_mode else (20, 20, 28, 70)
+    # لایه شیشه‌ای تیره‌تر برای خوانایی بهتر آیکون‌ها
+    overlay_color = (255, 255, 255, 40) if not is_dark_mode else (30, 30, 40, 120)
     draw_rounded_rect(final_dock_surface, final_dock_surface.get_rect(), overlay_color, 25)
 
-    # خط درخشان بالای داک (rim highlight)
     rim_surf = pygame.Surface((dock_rect.width, 1), pygame.SRCALPHA)
-    rim_color = (255, 255, 255, 80) if not is_dark_mode else (255, 255, 255, 40)
+    rim_color = (255, 255, 255, 90) if not is_dark_mode else (255, 255, 255, 40)
     rim_surf.fill(rim_color)
     final_dock_surface.blit(rim_surf, (0, 0))
 
-    # ماسک گوشه‌های گرد
     mask = pygame.Surface(dock_rect.size, pygame.SRCALPHA)
     draw_rounded_rect(mask, mask.get_rect(), (255, 255, 255, 255), 25)
     final_dock_surface.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
     screen.blit(final_dock_surface, dock_rect.topleft)
     draw_home_indicator()
-
 
 def draw_page_indicators(current_page, total_pages):
     indicator_radius, spacing = 4, 15; total_width = (total_pages - 1) * spacing
@@ -4442,46 +4943,113 @@ def draw_settings_wallpaper_screen(surface):
     return clickable_rects
 
 def draw_settings_custom_wallpaper_screen(surface):
-    surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
-    title = render_persian_text("انتخاب تصویر", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
-    y_pos = 120
-    clickable_rects = {'back_btn': back_btn_rect}
+    global custom_wp_scroll_offset, target_custom_wp_scroll_offset, custom_wp_thumbnails
+    
+    surface.fill(get_current_color('settings_bg'))
+    text_color = get_current_color('settings_title')
+    
+    # اسکرول نرم
+    custom_wp_scroll_offset += (target_custom_wp_scroll_offset - custom_wp_scroll_offset) * 0.15
+
+    clickable_rects = {}
+    y_start = 120
+    cols = 2
+    padding = 15
+    thumb_w = (SCREEN_WIDTH - (padding * 3)) // cols
+    thumb_h = int(thumb_w * (SCREEN_HEIGHT / SCREEN_WIDTH)) # حفظ نسبت تصویر صفحه
+
     try:
         files = [f for f in os.listdir('wallpapers') if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
-        for filename in files:
-            file_rect = pygame.Rect(30, y_pos, surface.get_width() - 60, 40)
-            draw_rounded_rect(surface, file_rect, get_current_color('settings_button_bg'), 8)
-            if active_file_item and active_file_item['rect'] == file_rect:
-                surf = pygame.Surface(file_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, file_rect.topleft)
-            file_surf = text_font.render(filename, True, get_current_color('settings_button_text'))
-            surface.blit(file_surf, file_surf.get_rect(centery=file_rect.centery, left=file_rect.left + 15))
-            file_item = {'name': filename, 'rect': file_rect}
-            clickable_rects[f'file_{filename}'] = file_rect
-            y_pos += 50
+        for i, filename in enumerate(files):
+            row = i // cols
+            col = i % cols
+            x_pos = padding + col * (thumb_w + padding)
+            y_pos = y_start + row * (thumb_h + padding) - custom_wp_scroll_offset
+            
+            # فقط در صورت قرار داشتن در صفحه رسم شود
+            if y_pos + thumb_h > 0 and y_pos < SCREEN_HEIGHT:
+                rect = pygame.Rect(x_pos, y_pos, thumb_w, thumb_h)
+                
+                # ایجاد و کش کردن Thumbnail برای جلوگیری از افت فریم
+                if filename not in custom_wp_thumbnails:
+                    path = os.path.join('wallpapers', filename)
+                    img = pygame.image.load(path).convert()
+                    custom_wp_thumbnails[filename] = pygame.transform.smoothscale(img, (thumb_w, thumb_h))
+                
+                thumb_surf = pygame.Surface((thumb_w, thumb_h), pygame.SRCALPHA)
+                draw_rounded_rect(thumb_surf, thumb_surf.get_rect(), (200, 200, 200), 12)
+                thumb_surf.blit(custom_wp_thumbnails[filename], (0,0), special_flags=pygame.BLEND_RGBA_MULT)
+                
+                # اگر در حال کلیک است تیره شود
+                if active_file_item and active_file_item['rect'] == rect:
+                    pygame.draw.rect(thumb_surf, (0,0,0,50), thumb_surf.get_rect(), border_radius=12)
+                
+                surface.blit(thumb_surf, rect.topleft)
+                clickable_rects[f'file_{filename}'] = rect
+
     except FileNotFoundError:
         error_text = render_persian_text("پوشه wallpapers یافت نشد", text_font, text_color)
-        surface.blit(error_text, error_text.get_rect(center=(surface.get_width()/2, 150)))
+        surface.blit(error_text, error_text.get_rect(center=(SCREEN_WIDTH/2, 200)))
+
+    # هدر شیشه‌ای بالا
+    header_surf = pygame.Surface((SCREEN_WIDTH, 100), pygame.SRCALPHA)
+    header_surf.fill((250, 250, 250, 230) if not is_dark_mode else (30, 30, 35, 230))
+    surface.blit(header_surf, (0,0))
+    
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE)
+    back_btn_rect = back_btn_text.get_rect(left=20, top=55)
+    surface.blit(back_btn_text, back_btn_rect)
+    clickable_rects['back_btn'] = back_btn_rect
+    
+    title = render_persian_text("انتخاب تصویر", settings_title_font, text_color)
+    surface.blit(title, title.get_rect(centerx=SCREEN_WIDTH/2, top=50))
+
     if active_button_rect == back_btn_rect:
         surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, back_btn_rect.topleft)
+
     return clickable_rects
 
-
 def draw_settings_display_screen(surface):
-    surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
-    title = render_persian_text(get_string("display", "صفحه نمايش"), settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
-    dark_mode_text = render_persian_text("حالت تاریک", text_font, text_color); surface.blit(dark_mode_text, (surface.get_width() - dark_mode_text.get_width() - 30, 130))
-    switch_rect = pygame.Rect(30, 120, 60, 30); switch_radius = switch_rect.height / 2
-    off_color = (200, 200, 200); on_color = BLUE
-    switch_bg_color = tuple(int(off + (on - off) * dark_mode_switch_progress) for off, on in zip(off_color, on_color))
-    draw_rounded_rect(surface, switch_rect, switch_bg_color, switch_radius)
-    start_x = switch_rect.left + switch_radius; end_x = switch_rect.right - switch_radius
-    circle_pos_x = start_x + (end_x - start_x) * dark_mode_switch_progress
-    pygame.draw.circle(surface, WHITE, (circle_pos_x, switch_rect.centery), switch_radius - 4)
+    global superisland_switch_progress
+    surface.fill(get_current_color('settings_bg'))
+    text_color = get_current_color('settings_title')
+    
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE)
+    back_btn_rect = back_btn_text.get_rect(left=20, top=55)
+    surface.blit(back_btn_text, back_btn_rect)
+    
+    title = render_persian_text(get_string("display", "صفحه نمايش"), settings_title_font, text_color)
+    surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
+    
+    # --- دکمه حالت تاریک ---
+    dark_mode_text = render_persian_text("حالت تاریک", text_font, text_color)
+    surface.blit(dark_mode_text, (surface.get_width() - dark_mode_text.get_width() - 30, 130))
+    switch_rect_dm = pygame.Rect(30, 120, 60, 30)
+    switch_radius = switch_rect_dm.height / 2
+    off_color, on_color = (200, 200, 200), BLUE
+    dm_bg_color = tuple(int(off + (on - off) * dark_mode_switch_progress) for off, on in zip(off_color, on_color))
+    draw_rounded_rect(surface, switch_rect_dm, dm_bg_color, switch_radius)
+    circle_pos_x_dm = switch_rect_dm.left + switch_radius + (switch_rect_dm.width - 2 * switch_radius) * dark_mode_switch_progress
+    pygame.draw.circle(surface, WHITE, (circle_pos_x_dm, switch_rect_dm.centery), switch_radius - 4)
+
+    # --- دکمه SuperIsland ---
+    si_y = 190
+    superisland_text = render_persian_text("جزیره پویا (SuperIsland)", text_font, text_color)
+    surface.blit(superisland_text, (surface.get_width() - superisland_text.get_width() - 30, si_y + 10))
+    switch_rect_si = pygame.Rect(30, si_y, 60, 30)
+    si_bg_color = tuple(int(off + (on - off) * superisland_switch_progress) for off, on in zip(off_color, on_color))
+    draw_rounded_rect(surface, switch_rect_si, si_bg_color, switch_radius)
+    circle_pos_x_si = switch_rect_si.left + switch_radius + (switch_rect_si.width - 2 * switch_radius) * superisland_switch_progress
+    pygame.draw.circle(surface, WHITE, (circle_pos_x_si, switch_rect_si.centery), switch_radius - 4)
+
     if active_button_rect == back_btn_rect:
         surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, back_btn_rect.topleft)
-    return {'back_btn': back_btn_rect, 'dark_mode_toggle': pygame.Rect(30, 120, surface.get_width() - 60, 50)}
+
+    return {
+        'back_btn': back_btn_rect, 
+        'dark_mode_toggle': pygame.Rect(30, 120, surface.get_width() - 60, 50),
+        'superisland_toggle': pygame.Rect(30, si_y, surface.get_width() - 60, 50)
+    }
 
 # (اصلاح شده) صفحه تنظیمات قفل با گزینههای پسزمینه و جلوه عمق
 def draw_settings_lock_screen_screen(surface):
@@ -4578,28 +5146,69 @@ def draw_settings_lock_screen_screen(surface):
     return clickable_rects
 
 def draw_settings_custom_lock_wallpaper_screen(surface):
-    surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
-    title = render_persian_text("پسزمینه صفحه قفل", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
-    y_pos = 120
-    clickable_rects = {'back_btn': back_btn_rect}
+    global custom_wp_scroll_offset, target_custom_wp_scroll_offset, custom_wp_thumbnails
+    
+    surface.fill(get_current_color('settings_bg'))
+    text_color = get_current_color('settings_title')
+    
+    # اعمال اسکرول نرم
+    custom_wp_scroll_offset += (target_custom_wp_scroll_offset - custom_wp_scroll_offset) * 0.15
+
+    clickable_rects = {}
+    y_start = 120
+    cols = 2
+    padding = 15
+    thumb_w = (SCREEN_WIDTH - (padding * 3)) // cols
+    thumb_h = int(thumb_w * (SCREEN_HEIGHT / SCREEN_WIDTH))
+    
     try:
         files = [f for f in os.listdir('wallpapers') if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
-        for filename in files:
-            file_rect = pygame.Rect(30, y_pos, surface.get_width() - 60, 40)
-            draw_rounded_rect(surface, file_rect, get_current_color('settings_button_bg'), 8)
-            if active_file_item and active_file_item['rect'] == file_rect:
-                surf = pygame.Surface(file_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, file_rect.topleft)
-            file_surf = text_font.render(filename, True, get_current_color('settings_button_text'))
-            surface.blit(file_surf, file_surf.get_rect(centery=file_rect.centery, left=file_rect.left + 15))
-            file_item = {'name': filename, 'rect': file_rect}
-            clickable_rects[f'file_{filename}'] = file_rect
-            y_pos += 50
+        for i, filename in enumerate(files):
+            row = i // cols
+            col = i % cols
+            x_pos = padding + col * (thumb_w + padding)
+            y_pos = y_start + row * (thumb_h + padding) - custom_wp_scroll_offset
+            
+            if y_pos + thumb_h > 0 and y_pos < SCREEN_HEIGHT:
+                rect = pygame.Rect(x_pos, y_pos, thumb_w, thumb_h)
+                
+                if filename not in custom_wp_thumbnails:
+                    path = os.path.join('wallpapers', filename)
+                    img = pygame.image.load(path).convert()
+                    custom_wp_thumbnails[filename] = pygame.transform.smoothscale(img, (thumb_w, thumb_h))
+                
+                thumb_surf = pygame.Surface((thumb_w, thumb_h), pygame.SRCALPHA)
+                draw_rounded_rect(thumb_surf, thumb_surf.get_rect(), (200, 200, 200), 12)
+                thumb_surf.blit(custom_wp_thumbnails[filename], (0,0), special_flags=pygame.BLEND_RGBA_MULT)
+                
+                if active_file_item and active_file_item['rect'] == rect:
+                    pygame.draw.rect(thumb_surf, (0,0,0,50), thumb_surf.get_rect(), border_radius=12)
+                
+                surface.blit(thumb_surf, rect.topleft)
+                clickable_rects[f'file_{filename}'] = rect
+
     except FileNotFoundError:
         error_text = render_persian_text("پوشه wallpapers یافت نشد", text_font, text_color)
-        surface.blit(error_text, error_text.get_rect(center=(surface.get_width()/2, 150)))
+        surface.blit(error_text, error_text.get_rect(center=(SCREEN_WIDTH/2, 200)))
+
+    # هدر شیشه‌ای
+    header_surf = pygame.Surface((SCREEN_WIDTH, 100), pygame.SRCALPHA)
+    header_surf.fill((250, 250, 250, 230) if not is_dark_mode else (30, 30, 35, 230))
+    surface.blit(header_surf, (0,0))
+    
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE)
+    back_btn_rect = back_btn_text.get_rect(left=20, top=55)
+    surface.blit(back_btn_text, back_btn_rect)
+    clickable_rects['back_btn'] = back_btn_rect
+    
+    title = render_persian_text("انتخاب تصویر قفل", settings_title_font, text_color)
+    surface.blit(title, title.get_rect(centerx=SCREEN_WIDTH/2, top=50))
+
     if active_button_rect == back_btn_rect:
-        surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, back_btn_rect.topleft)
+        surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA)
+        surf.fill((0,0,0,40))
+        surface.blit(surf, back_btn_rect.topleft)
+
     return clickable_rects
 
 def draw_settings_battery_screen(surface):
@@ -4758,14 +5367,37 @@ def draw_settings_battery_screen(surface):
 
 
 def draw_settings_about_screen(surface):
-    draw_gradient_background(surface, HYPEROS_TOP, HYPEROS_BOTTOM)
-    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
-    title = render_persian_text(get_string("about", "درباره"), settings_title_font, WHITE); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
+    # پس‌زمینه تیره ثابت
+    surface.fill((20, 25, 35))
+    
+    # افکت تابش نور نرم از بالا سمت راست (گوشه)
+    light_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    # رسم دایره‌های تو در تو با شفافیت کاهنده برای ایجاد هاله نور نرم
+    for radius in range(int(SCREEN_WIDTH * 1.5), 0, -15):
+        alpha = int(12 * (1 - radius / (SCREEN_WIDTH * 1.5)))
+        if alpha > 0:
+            pygame.draw.circle(light_surf, (80, 140, 255, alpha), (SCREEN_WIDTH, 0), radius)
+    surface.blit(light_surf, (0, 0))
+    
+    # متن و دکمه‌ها
+    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, WHITE)
+    back_btn_rect = back_btn_text.get_rect(left=20, top=55)
+    surface.blit(back_btn_text, back_btn_rect)
+    
+    title = render_persian_text(get_string("about", "درباره"), settings_title_font, WHITE)
+    surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
+    
+    # لوگوی ثابت (بدون انیمیشن مقیاس)
     os_name_surf = about_font.render("ParsOS", True, WHITE)
-    surface.blit(os_name_surf, os_name_surf.get_rect(center=(surface.get_width()/2, surface.get_height()/2)))
+    logo_rect = os_name_surf.get_rect(center=(surface.get_width()/2, surface.get_height()/2))
+    surface.blit(os_name_surf, logo_rect)
+    
     if active_button_rect == back_btn_rect:
-        surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, back_btn_rect.topleft)
-    return {'back_btn': back_btn_rect}
+        surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 40))
+        surface.blit(surf, back_btn_rect.topleft)
+        
+    return {'back_btn': back_btn_rect, 'logo_btn': logo_rect}
 
 def draw_notes_context_menu(surface):
     menu_width, menu_height = 120, 80
@@ -4782,230 +5414,6 @@ def draw_notes_context_menu(surface):
     paste_rect = paste_text.get_rect(right=menu_rect.right - 15, top=copy_rect.bottom + 10)
     surface.blit(copy_text, copy_rect); surface.blit(paste_text, paste_rect)
     return {'copy': copy_rect, 'paste': paste_rect}
-
-def draw_notes_app_screen(surface):
-    global notes_text, text_surfaces_cache, last_notes_text
-    global scroll_offset, target_scroll_offset
-    global notes_cursor_alpha, notes_last_type_time, notes_word_count, notes_char_count
-    global notes_save_filename, notes_cursor_index
-
-    sw, sh = surface.get_size()
-
-    # باز کردن فایل اگر درخواست شده
-    file_path_to_open = app_context.get('file_path')
-    if file_path_to_open and os.path.exists(file_path_to_open):
-        try:
-            with open(file_path_to_open, 'r', encoding='utf-8') as fp:
-                notes_text = fp.read()
-            notes_save_filename = os.path.basename(file_path_to_open)
-            app_context['file_path'] = None
-            target_scroll_offset = 0
-            scroll_offset = 0
-            notes_cursor_index = len(notes_text)
-        except Exception as e:
-            notes_text = f"خطا:\n{e}"
-
-    # رندر متن فقط هنگام تغییر
-    if notes_text != last_notes_text:
-        text_surfaces_cache = render_persian_text(
-            notes_text, notes_font, get_current_color('notes_text'), is_note=True
-        )
-        last_notes_text = notes_text
-        notes_word_count = len(notes_text.split()) if notes_text.strip() else 0
-        notes_char_count = len(notes_text)
-        notes_last_type_time = time.time()
-        # اسکرول خودکار به انتهای متن هنگام تایپ
-        total_h = sum(s.get_height() for s in text_surfaces_cache) if text_surfaces_cache else 0
-        content_top = 96
-        max_s = max(0, total_h - (sh - content_top - 44))
-        target_scroll_offset = float(max_s)
-
-    # اسکرول نرم با lerp
-    scroll_offset += (target_scroll_offset - scroll_offset) * 0.15
-
-    # رنگ‌ها
-    dark = is_dark_mode
-    bg       = (252, 252, 253) if not dark else (17, 17, 21)
-    txt_col  = (22,  22,  26)  if not dark else (232, 232, 238)
-    accent   = (48, 138, 255)
-    sep_col  = (220, 220, 224) if not dark else (36, 36, 46)
-    ph_col   = (175, 175, 182) if not dark else (88, 88, 100)
-    stat_col = (170, 170, 176) if not dark else (72, 72, 84)
-    tb_col   = (246, 246, 248) if not dark else (22, 22, 28)
-
-    surface.fill(bg)
-
-    content_top = 96
-    status_h    = 40
-
-    # --- رسم متن با cursor آگاه از موقعیت ---
-    clip_rect = pygame.Rect(0, content_top, sw, sh - content_top - status_h)
-    surface.set_clip(clip_rect)
-
-    # clamp و محاسبه موقعیت cursor
-    notes_cursor_index = max(0, min(notes_cursor_index, len(notes_text)))
-    lines_text = notes_text.split('\n')
-    cur_line, cur_col = 0, 0
-    cc = 0
-    for li, ln in enumerate(lines_text):
-        if cc + len(ln) >= notes_cursor_index:
-            cur_line, cur_col = li, notes_cursor_index - cc
-            break
-        cc += len(ln) + 1
-    else:
-        cur_line = len(lines_text) - 1
-        cur_col = len(lines_text[-1]) if lines_text else 0
-
-    y = content_top - int(scroll_offset)
-    total_text_h = 0
-    cursor_x = sw - 27
-    cursor_y = content_top + 4
-    cursor_h = notes_font.get_height()
-
-    for li, line_surf in enumerate(text_surfaces_cache):
-        lh = line_surf.get_height()
-        total_text_h += lh
-        if y + lh > content_top and y < sh - status_h:
-            x = sw - line_surf.get_width() - 22
-            surface.blit(line_surf, (x, y))
-        # موقعیت cursor در این خط
-        if li == cur_line:
-            cursor_h = lh
-            cursor_y = y
-            # متن بعد از cursor (RTL: cursor سمت چپ آن قرار می‌گیرد)
-            ln_text = lines_text[li] if li < len(lines_text) else ""
-            after_txt = ln_text[cur_col:]
-            if after_txt:
-                try:
-                    ac = render_persian_text(after_txt, notes_font, txt_col)
-                    cursor_x = sw - ac.get_width() - 24
-                except:
-                    cursor_x = sw - 27
-            else:
-                cursor_x = sw - 27
-        y += lh
-
-    surface.set_clip(None)
-
-    # placeholder
-    if not notes_text:
-        ph_font = mf(18)
-        ph_surf = render_persian_text("بنویس...", ph_font, ph_col)
-        surface.blit(ph_surf, ph_surf.get_rect(right=sw - 22, top=content_top + 8))
-
-    # --- Cursor با fade سینوسی در موقعیت دقیق ---
-    now = time.time()
-    since_type = now - notes_last_type_time
-    notes_cursor_alpha = 255 if since_type < 0.35 else int(max(0, (math.sin(now * 4.2) * 0.5 + 0.5) * 255))
-
-    if notes_cursor_alpha > 6 and content_top <= cursor_y < sh - status_h:
-        csr = pygame.Surface((2, cursor_h), pygame.SRCALPHA)
-        csr.fill((*accent, notes_cursor_alpha))
-        surface.blit(csr, (cursor_x, cursor_y))
-
-    # نوار اسکرول راست
-    visible_h = sh - content_top - status_h
-    if total_text_h > visible_h and total_text_h > 0:
-        track_h  = visible_h - 8
-        ratio    = visible_h / total_text_h
-        thumb_h  = max(22, int(track_h * ratio))
-        max_sc   = max(1, total_text_h - visible_h)
-        thumb_y  = content_top + 4 + int((scroll_offset / max_sc) * (track_h - thumb_h))
-        sc_col   = (190, 190, 196) if not dark else (62, 62, 74)
-        pygame.draw.rect(surface, sc_col, (sw - 4, thumb_y, 3, thumb_h), border_radius=2)
-
-    # ===== TOOLBAR بالا =====
-    tb_surf = pygame.Surface((sw, content_top), pygame.SRCALPHA)
-    tb_surf.fill((*tb_col, 250))
-    surface.blit(tb_surf, (0, 0))
-    pygame.draw.line(surface, sep_col, (0, content_top), (sw, content_top), 1)
-
-    # عنوان (نام فایل)
-    raw_name = os.path.splitext(notes_save_filename)[0]
-    disp_name = (raw_name[:15] + "...") if len(raw_name) > 18 else raw_name
-    tf = mf(17)
-    t_surf = render_persian_text(disp_name, tf, txt_col)
-    surface.blit(t_surf, t_surf.get_rect(centerx=sw // 2, top=10))
-
-    # تاریخ کوچک
-    df = mf(11)
-    ds = render_persian_text(datetime.datetime.now().strftime("%Y/%m/%d"), df, ph_col)
-    surface.blit(ds, ds.get_rect(centerx=sw // 2, top=33))
-
-    # دکمه ذخیره
-    btn_h, btn_top, btn_r = 32, 56, 10
-    save_btn_rect = pygame.Rect(12, btn_top, 76, btn_h)
-    s_pressed = (active_button_rect == save_btn_rect)
-    s_bg = tuple(max(0, c - 25) for c in accent) if s_pressed else accent
-    draw_rounded_rect(surface, save_btn_rect, s_bg, btn_r)
-    sv = render_persian_text("ذخیره", text_font, WHITE)
-    surface.blit(sv, sv.get_rect(center=save_btn_rect.center))
-
-    # دکمه باز کردن
-    open_btn_rect = pygame.Rect(96, btn_top, 88, btn_h)
-    o_pressed = (active_button_rect == open_btn_rect)
-    o_bg = ((200, 202, 210) if o_pressed else (232, 232, 238)) if not dark else ((50, 50, 62) if o_pressed else (36, 36, 48))
-    draw_rounded_rect(surface, open_btn_rect, o_bg, btn_r)
-    ov = render_persian_text("باز کردن", text_font, txt_col)
-    surface.blit(ov, ov.get_rect(center=open_btn_rect.center))
-
-    # ===== STATUS BAR پایین =====
-    sb_surf = pygame.Surface((sw, status_h), pygame.SRCALPHA)
-    sb_surf.fill((*tb_col, 242))
-    surface.blit(sb_surf, (0, sh - status_h))
-    pygame.draw.line(surface, sep_col, (0, sh - status_h), (sw, sh - status_h), 1)
-    sf = mf(11)
-    stat_s = sf.render(f"{notes_word_count} words  |  {notes_char_count} chars", True, stat_col)
-    surface.blit(stat_s, stat_s.get_rect(right=sw - 14, centery=sh - status_h // 2))
-
-    if is_notes_context_menu_open:
-        draw_notes_context_menu(surface)
-
-    return {'save_btn': save_btn_rect, 'open_btn': open_btn_rect}
-
-
-def draw_notes_save_screen(surface):
-    surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
-    title = render_persian_text("ذخیره یادداشت", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
-    input_box_rect = pygame.Rect(50, 150, surface.get_width() - 100, 40); pygame.draw.rect(surface, get_current_color('settings_button_bg'), input_box_rect, border_radius=8)
-    pygame.draw.rect(surface, BLUE, input_box_rect, 2, border_radius=8)
-    filename_surf = render_persian_text(notes_save_filename, text_font, get_current_color('settings_button_text'))
-    surface.blit(filename_surf, filename_surf.get_rect(centery=input_box_rect.centery, right=input_box_rect.right - 10))
-    confirm_save_btn = pygame.Rect(surface.get_width()/2 - 50, 220, 100, 40); draw_rounded_rect(surface, confirm_save_btn, BLUE, 10)
-    save_text = render_persian_text("ذخیره", text_font, WHITE); surface.blit(save_text, save_text.get_rect(center=confirm_save_btn.center))
-    if active_button_rect == back_btn_rect:
-        surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, back_btn_rect.topleft)
-    if active_button_rect == confirm_save_btn:
-        surf = pygame.Surface(confirm_save_btn.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, confirm_save_btn.topleft)
-    return {'back_btn': back_btn_rect, 'confirm_btn': confirm_save_btn, 'input_box': input_box_rect}
-
-def draw_notes_open_screen(surface):
-    global notes_file_list
-    surface.fill(get_current_color('settings_bg')); text_color = get_current_color('settings_title')
-    back_btn_text = render_persian_text(get_string("back", "< بازگشت"), text_font, BLUE); back_btn_rect = back_btn_text.get_rect(left=20, top=55); surface.blit(back_btn_text, back_btn_rect)
-    title = render_persian_text("باز کردن یادداشت", settings_title_font, text_color); surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
-    notes_file_list.clear(); y_pos = 120
-    clickable_rects = {'back_btn': back_btn_rect}
-    try:
-        files = [f for f in os.listdir('notes') if f.endswith('.txt')]
-        for filename in files:
-            file_rect = pygame.Rect(30, y_pos, surface.get_width() - 60, 40)
-            draw_rounded_rect(surface, file_rect, get_current_color('settings_button_bg'), 8)
-            if active_file_item and active_file_item['rect'] == file_rect:
-                surf = pygame.Surface(file_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, file_rect.topleft)
-            file_surf = render_persian_text(filename, text_font, get_current_color('settings_button_text'))
-            surface.blit(file_surf, file_surf.get_rect(centery=file_rect.centery, right=file_rect.right - 15))
-            file_item = {'name': filename, 'rect': file_rect}
-            notes_file_list.append(file_item)
-            clickable_rects[f'file_{filename}'] = file_rect
-            y_pos += 50
-    except FileNotFoundError:
-        error_text = render_persian_text("پوشه notes یافت نشد", text_font, text_color)
-        surface.blit(error_text, error_text.get_rect(center=(surface.get_width()/2, 150)))
-    if active_button_rect == back_btn_rect:
-        surf = pygame.Surface(back_btn_rect.size, pygame.SRCALPHA); surf.fill((0,0,0,40)); surface.blit(surf, back_btn_rect.topleft)
-    return clickable_rects
 
 def format_time(seconds):
     if seconds < 0: seconds = 0
@@ -5118,45 +5526,31 @@ def draw_music_app_screen(surface):
     global is_music_playing, is_music_paused, music_track_name, current_track_length, \
            current_album_art_surface, music_playback_start_time_offset, current_track_index, \
            is_scrubbing_music, music_scrub_progress, cached_blurred_bg, last_played_track_name, \
-           music_art_scale, target_music_art_scale, scrub_knob_scale
+           music_art_scale, target_music_art_scale, scrub_knob_scale, music_transition
 
-    # 1. منطق پخش (مشابه قبل)
-    file_path_to_play = app_context.get('file_path')
-    if file_path_to_play and os.path.exists(file_path_to_play):
-        try:
-            if file_path_to_play in music_playlist:
-                current_track_index = music_playlist.index(file_path_to_play)
-            else:
-                music_playlist.insert(0, file_path_to_play)
-                current_track_index = 0
-            pygame.mixer.music.load(music_playlist[current_track_index])
-            current_track_length, current_album_art_surface = get_track_info(music_playlist[current_track_index])
-            music_track_name = os.path.basename(music_playlist[current_track_index])
-            pygame.mixer.music.play()
-            is_music_playing, is_music_paused = True, False
-            music_playback_start_time_offset = 0
-            cached_blurred_bg = None 
-            app_context['file_path'] = None 
-        except Exception as e:
-            print(f"Error: {e}")
-
-    # 2. رسم پس‌زمینه (Gaussian Blur چندمرحله‌ای - نرم و زیبا)
     screen_w, screen_h = surface.get_size()
+    
+    # فونت‌ها
+    title_font = mf(24)
+    artist_font = mf(18)
+    time_font = mf(12)
+    plist_font = mf(11)
+    shuf_font = mf(16)
+    rep_font = mf(16)
+
+    # ========== پس‌زمینه مات ==========
     if music_track_name != last_played_track_name or cached_blurred_bg is None:
         last_played_track_name = music_track_name
         if current_album_art_surface:
             try:
                 art = current_album_art_surface.convert()
-                # مرحله ۱: کوچک‌سازی تدریجی برای شبیه‌سازی Gaussian واقعی
-                s1 = pygame.transform.smoothscale(art, (screen_w // 5, screen_h // 5))
-                s2 = pygame.transform.smoothscale(s1, (screen_w // 12, screen_h // 12))
-                s3 = pygame.transform.smoothscale(s2, (screen_w // 7, screen_h // 7))
-                s4 = pygame.transform.smoothscale(s3, (screen_w // 18, screen_h // 18))
-                # مرحله ۲: بزرگ‌سازی به اندازه صفحه (ایجاد نرمی گوسی)
+                s1 = pygame.transform.smoothscale(art, (screen_w // 6, screen_h // 6))
+                s2 = pygame.transform.smoothscale(s1, (screen_w // 14, screen_h // 14))
+                s3 = pygame.transform.smoothscale(s2, (screen_w // 8, screen_h // 8))
+                s4 = pygame.transform.smoothscale(s3, (screen_w // 22, screen_h // 22))
                 blurred = pygame.transform.smoothscale(s4, (screen_w, screen_h))
-                # مرحله ۳: لایه‌گذاری رنگ - تاریک با کمی رنگ‌آمیزی سرد
                 overlay = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
-                overlay.fill((5, 8, 18, 170))
+                overlay.fill((5, 8, 18, 180))
                 blurred.blit(overlay, (0, 0))
                 cached_blurred_bg = blurred
             except:
@@ -5169,118 +5563,115 @@ def draw_music_app_screen(surface):
     else:
         draw_gradient_background(surface, (60, 60, 70), (20, 20, 25))
 
-    # 3. انیمیشن کاور آلبوم (Breathing Effect)
-    # اگر در حال پخش است اسکیل 1.0 وگرنه 0.8
-    target_music_art_scale = 1.0 if is_music_playing else 0.8
-    # درونیابی نرم (Lerp)
-    music_art_scale += (target_music_art_scale - music_art_scale) * 0.08
-
-    cover_size = 280 # اندازه پایه
-    current_size = int(cover_size * music_art_scale)
-    
+    cover_size = 280
     cover_center_x = screen_w / 2
     cover_center_y = 240
-    
-    cover_rect = pygame.Rect(0, 0, current_size, current_size)
-    cover_rect.center = (cover_center_x, cover_center_y)
 
-    # سایه زیر کاور (سایز و شفافیت سایه هم با آهنگ تغییر میکند)
-    shadow_offset = 20 * music_art_scale
-    shadow_alpha = int(100 * music_art_scale)
-    shadow_surface = pygame.Surface((current_size, current_size), pygame.SRCALPHA)
-    draw_rounded_rect(shadow_surface, shadow_surface.get_rect(), (0, 0, 0, shadow_alpha), 25)
-    # کمی محو کردن سایه (سریع با اسکیل)
-    shadow_surface = pygame.transform.scale(shadow_surface, (int(current_size*0.95), int(current_size*0.95)))
-    surface.blit(shadow_surface, shadow_surface.get_rect(center=(cover_center_x, cover_center_y + shadow_offset)))
+    # تابع کمکی برای رسم کاور با گوشه گرد
+    def draw_rounded_cover(surf, art, center_x, center_y, size):
+        if art is None:
+            return
+        scaled = pygame.transform.smoothscale(art, (size, size))
+        rounded = pygame.Surface((size, size), pygame.SRCALPHA)
+        draw_rounded_rect(rounded, rounded.get_rect(), (255, 255, 255), 20)
+        rounded.blit(scaled, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        pygame.draw.rect(rounded, (255,255,255, 50), rounded.get_rect(), 1, border_radius=20)
+        rect = rounded.get_rect(center=(center_x, center_y))
+        surf.blit(rounded, rect)
 
-    # رسم خود کاور
-    if current_album_art_surface:
-        scaled_art = pygame.transform.smoothscale(current_album_art_surface, (current_size, current_size))
-        # ماسک برای گوشههای گرد
-        final_art = pygame.Surface((current_size, current_size), pygame.SRCALPHA)
-        draw_rounded_rect(final_art, final_art.get_rect(), (255, 255, 255), 20)
-        final_art.blit(scaled_art, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        
-        # حاشیه بسیار نازک سفید برای تمیزی
-        pygame.draw.rect(final_art, (255,255,255, 50), final_art.get_rect(), 1, border_radius=20)
-        
-        surface.blit(final_art, cover_rect.topleft)
+    use_transition = music_transition['active'] and music_transition['old_art'] is not None
+
+    if use_transition:
+        t = music_transition['progress']
+        ease_progress = 1 - (1 - t) ** 3
+        direction = music_transition['direction']
+        offset = int(ease_progress * screen_w) * direction
+
+        # کاور قدیم
+        draw_rounded_cover(surface, music_transition['old_art'], cover_center_x - offset, cover_center_y, cover_size)
+        # کاور جدید
+        new_x = cover_center_x + (screen_w - offset) if direction == 1 else cover_center_x - (screen_w - offset)
+        draw_rounded_cover(surface, music_transition['new_art'], new_x, cover_center_y, cover_size)
+
+        # اسلاید متن
+        old_name = music_transition['old_track_name']
+        new_name = music_transition['new_track_name']
+        old_name_clean = os.path.splitext(old_name)[0] if old_name else ""
+        new_name_clean = os.path.splitext(new_name)[0] if new_name else ""
+        text_offset = int(ease_progress * 60) * direction
+        if old_name_clean:
+            old_title = render_persian_text(old_name_clean, title_font, WHITE)
+            surface.blit(old_title, old_title.get_rect(center=(cover_center_x - text_offset, 420)))
+        if new_name_clean:
+            new_title = render_persian_text(new_name_clean, title_font, WHITE)
+            surface.blit(new_title, new_title.get_rect(center=(cover_center_x + (60 - text_offset) if direction == 1 else cover_center_x - (60 - text_offset), 420)))
+        artist_surf = render_persian_text("ParsOS Music", artist_font, (180, 180, 180))
+        surface.blit(artist_surf, artist_surf.get_rect(center=(screen_w/2, 455)))
     else:
-        # کاور پیشفرض
-        draw_rounded_rect(surface, cover_rect, (40, 40, 50), 20)
-        pygame.draw.rect(surface, (255, 255, 255, 30), cover_rect, 2, border_radius=20)
-        # آیکون نت موسیقی
-        music_icon_surf = pygame.Surface((current_size//2, current_size//2), pygame.SRCALPHA)
-        draw_music_icon(music_icon_surf, music_icon_surf.get_rect())
-        surface.blit(music_icon_surf, music_icon_surf.get_rect(center=cover_rect.center))
+        # حالت عادی با انیمیشن تنفس
+        target_music_art_scale = 1.0 if is_music_playing else 0.8
+        music_art_scale += (target_music_art_scale - music_art_scale) * 0.08
+        current_size = int(cover_size * music_art_scale)
+        cover_rect = pygame.Rect(0, 0, current_size, current_size)
+        cover_rect.center = (cover_center_x, cover_center_y)
 
-    # 4. اطلاعات آهنگ (با اسکرول)
-    info_y_start = 420
-    track_name_cleaned = os.path.splitext(music_track_name)[0]
-    
-    title_font = mf(24)
-    artist_font = mf(18)
-    
-    # رسم نام آهنگ (اسکرول شونده)
-    draw_scrolling_text(surface, track_name_cleaned, title_font, WHITE, screen_w/2, info_y_start, screen_w - 60)
-    
-    # رسم نام خواننده (ثابت)
-    artist_surf = render_persian_text("ParsOS Music", artist_font, (180, 180, 180))
-    surface.blit(artist_surf, artist_surf.get_rect(center=(screen_w/2, info_y_start + 35)))
+        # سایه
+        shadow_offset = 20 * music_art_scale
+        shadow_alpha = int(100 * music_art_scale)
+        shadow_surface = pygame.Surface((current_size, current_size), pygame.SRCALPHA)
+        draw_rounded_rect(shadow_surface, shadow_surface.get_rect(), (0, 0, 0, shadow_alpha), 25)
+        shadow_surface = pygame.transform.scale(shadow_surface, (int(current_size*0.95), int(current_size*0.95)))
+        surface.blit(shadow_surface, shadow_surface.get_rect(center=(cover_center_x, cover_center_y + shadow_offset)))
 
-    # 5. نوار پیشرفت (Interactive Seek Bar)
+        # کاور اصلی با گوشه گرد
+        draw_rounded_cover(surface, current_album_art_surface, cover_center_x, cover_center_y, current_size)
+
+        # متن آهنگ
+        track_name_cleaned = os.path.splitext(music_track_name)[0]
+        draw_scrolling_text(surface, track_name_cleaned, title_font, WHITE, screen_w/2, 420, screen_w - 60)
+        artist_surf = render_persian_text("ParsOS Music", artist_font, (180, 180, 180))
+        surface.blit(artist_surf, artist_surf.get_rect(center=(screen_w/2, 455)))
+
+    # ========== نوار پیشرفت (بدون تغییر) ==========
     seek_bar_y = 500
     seek_bar_height = 4
     seek_bar_width = screen_w - 60
     seek_bar_rect = pygame.Rect((screen_w - seek_bar_width)/2, seek_bar_y, seek_bar_width, seek_bar_height)
-    
-    # محاسبه زمان
+
     current_time = 0
     progress = 0.0
     if is_scrubbing_music:
         progress = music_scrub_progress
         current_time = progress * current_track_length
     elif (is_music_playing or is_music_paused) and current_track_length > 0:
-        current_time = music_playback_start_time_offset + (pygame.mixer.music.get_pos() / 1000.0)
+        current_time = music_playback_start_time_offset + pygame.mixer.music.get_pos() / 1000.0
         progress = current_time / current_track_length
     progress = max(0.0, min(1.0, progress))
 
-    # رسم پسزمینه نوار
     draw_rounded_rect(surface, seek_bar_rect, (255, 255, 255, 50), 2)
-    
-    # رسم بخش پر شده
     fill_width = seek_bar_width * progress
     fill_rect = pygame.Rect(seek_bar_rect.left, seek_bar_rect.top, fill_width, seek_bar_height)
-    draw_rounded_rect(surface, fill_rect, (200, 200, 200), 2) # خاکستری روشن
+    draw_rounded_rect(surface, fill_rect, (200, 200, 200), 2)
 
-    # رسم Knob (دستگیره)
-    # انیمیشن بزرگ شدن Knob هنگام اسکراب
     target_knob = 1.5 if is_scrubbing_music else 1.0
     scrub_knob_scale += (target_knob - scrub_knob_scale) * 0.2
-    
     knob_radius = 6 * scrub_knob_scale
     knob_center = (fill_rect.right, seek_bar_rect.centery)
     pygame.draw.circle(surface, WHITE, knob_center, knob_radius)
-    
-    # زمانها
-    time_font = mf(12)
+
     curr_time_surf = time_font.render(format_time(current_time), True, (180, 180, 180))
     total_time_surf = time_font.render(format_time(current_track_length), True, (180, 180, 180))
-    
     surface.blit(curr_time_surf, (seek_bar_rect.left, seek_bar_rect.bottom + 8))
     surface.blit(total_time_surf, total_time_surf.get_rect(topright=(seek_bar_rect.right, seek_bar_rect.bottom + 8)))
 
-    # 6. دکمههای کنترل (Tactile Buttons)
+    # ========== دکمه‌ها ==========
     controls_y = 600
     play_btn_size = 75
     side_btn_size = 50
-    
     play_rect = pygame.Rect(0, 0, play_btn_size, play_btn_size)
     play_rect.center = (screen_w/2, controls_y)
-    
     prev_rect = pygame.Rect(0, 0, side_btn_size, side_btn_size)
     prev_rect.center = (play_rect.left - 60, controls_y)
-    
     next_rect = pygame.Rect(0, 0, side_btn_size, side_btn_size)
     next_rect.center = (play_rect.right + 60, controls_y)
 
@@ -5288,16 +5679,12 @@ def draw_music_app_screen(surface):
     draw_tactile_button(surface, prev_rect, 'prev', 'prev')
     draw_tactile_button(surface, next_rect, 'next', 'next')
 
-    # --- دکمههای Shuffle و Repeat ---
     extra_btn_y = controls_y + 52
     extra_btn_size = 36
     extra_color = (180, 180, 180) if not is_dark_mode else (140, 140, 140)
-
-    # Shuffle
     shuffle_rect = pygame.Rect(0, 0, extra_btn_size, extra_btn_size)
     shuffle_rect.center = (prev_rect.centerx, extra_btn_y)
     shuf_active_col = (255, 255, 255) if music_shuffle else extra_color
-    shuf_font = mf(16)
     shuf_s = shuf_font.render("⇄", True, shuf_active_col)
     surface.blit(shuf_s, shuf_s.get_rect(center=shuffle_rect.center))
     if music_shuffle:
@@ -5305,20 +5692,16 @@ def draw_music_app_screen(surface):
         dot_y = shuffle_rect.bottom + 3
         pygame.draw.circle(surface, (255, 255, 255), (dot_x, dot_y), 3)
 
-    # Repeat
     repeat_rect = pygame.Rect(0, 0, extra_btn_size, extra_btn_size)
     repeat_rect.center = (next_rect.centerx, extra_btn_y)
     repeat_icons = ["↺", "↻", "❶"]
     rep_col = (255, 255, 255) if music_repeat > 0 else extra_color
-    rep_font = mf(16)
     rep_s = rep_font.render(repeat_icons[music_repeat], True, rep_col)
     surface.blit(rep_s, rep_s.get_rect(center=repeat_rect.center))
     if music_repeat > 0:
         pygame.draw.circle(surface, rep_col, (repeat_rect.centerx, repeat_rect.bottom + 3), 3)
 
-    # اطلاعات پلیلیست
     if music_playlist:
-        plist_font = mf(11)
         plist_text = f"{current_track_index + 1} / {len(music_playlist)}"
         plist_surf = plist_font.render(plist_text, True, (150, 150, 150))
         surface.blit(plist_surf, plist_surf.get_rect(center=(screen_w / 2, extra_btn_y)))
@@ -5452,6 +5835,36 @@ def draw_app_screen():
     global app_screen_animation_direction, app_screen_animation_progress, app_context, app_surfaces
     main_app_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
     app_name, app_page = app_context.get('app_name'), app_context.get('screen')
+
+    clickable_rects = {}
+    
+    if app_context.get('app_type') == 'remote':
+        # پیدا کردن سطح برنامه از سرور نمایش
+        remote_surf = None
+        with display_server.lock:
+            for session_id, app in display_server.apps.items():
+                if app.is_connected:
+                    remote_surf = app.surface
+                    break   # اولین برنامه متصل
+        if remote_surf:
+            scaled = pygame.transform.scale(remote_surf, (SCREEN_WIDTH, SCREEN_HEIGHT))
+            main_app_surface.blit(scaled, (0,0))
+        else:
+            # در حال انتظار برای اتصال
+            main_app_surface.fill((50,50,50))
+            wait_text = render_persian_text("منتظر اتصال برنامه...", mf(18), WHITE)
+            main_app_surface.blit(wait_text, wait_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT/2)))
+
+    if app_context.get('app_type') == 'remote':
+        session_id = app_context.get('session_id')
+        if session_id is not None:
+            remote_surf = display_server.get_app_surface(session_id)
+            if remote_surf:
+                # مقیاس‌بندی به اندازه صفحه (در صورت نیاز)
+                scaled = pygame.transform.scale(remote_surf, (SCREEN_WIDTH, SCREEN_HEIGHT))
+                main_app_surface.blit(scaled, (0,0))
+            else:
+                main_app_surface.fill((100,100,100))
     
     # (جدید) بررسی و اجرای منطق رسم برای برنامههای خارجی
     if app_context.get('is_external_app'):
@@ -5474,10 +5887,14 @@ def draw_app_screen():
             elif app_page == 'language': draw_settings_language_screen(main_app_surface) # <--- (جدید) این خط اضافه شده است
             elif app_page == 'battery': draw_settings_battery_screen(main_app_surface)
             elif app_page == 'about': draw_settings_about_screen(main_app_surface)
-        elif app_name == 'notes':
-            if app_page == 'notes_main': draw_notes_app_screen(main_app_surface)
-            elif app_page == 'notes_save': draw_notes_save_screen(main_app_surface)
-            elif app_page == 'notes_open': draw_notes_open_screen(main_app_surface)
+        if app_name == 'notes':
+            # فراخوانی متد رسم ماژول جدا شده و دریافت نقاط کلیک
+            app_clicks = notes_module.draw(main_app_surface, current_w, current_h, app_context)
+            
+            # ثبت کادرهای کلیک در دیکشنری عمومی کلیک‌های فعال سیستم‌عامل
+            for click_key, rect in app_clicks.items():
+                # متغیر کامپوننت‌های کلیک بر اساس معماری سیستم‌عامل شما (مثلاً clickable_rects یا UI rects)
+                clickable_rects[click_key] = rect
         elif app_name == 'music': draw_music_app_screen(main_app_surface)
         elif app_name == 'browser': draw_browser_app_screen(main_app_surface)
         elif app_name == 'files':
@@ -5506,9 +5923,11 @@ def draw_app_screen():
 
     # مدیریت انیمیشن جابجایی بین صفحات داخلی یک برنامه
     if app_screen_animation_direction != 0:
-        app_screen_animation_progress += 0.05
-        if app_screen_animation_progress >= 1.0:
-            app_screen_animation_progress, app_screen_animation_direction = 0, 0
+        if app_screen_animation_direction != 0:
+            # وابسته به فریم تایم
+            app_screen_animation_progress += 4.5 * dt 
+            if app_screen_animation_progress >= 1.0:
+                app_screen_animation_progress, app_screen_animation_direction = 0, 0
             if app_context.get('animation_callback'): app_context['animation_callback'](); app_context['animation_callback'] = None
         progress = (1 - math.cos(app_screen_animation_progress * math.pi)) / 2
         old_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -5678,6 +6097,7 @@ is_returning_app_to_open = False
 add_main_notification("تنظیمات", "سیستم", "سیستم راه اندازی شد.", icon_name="settings")
 
 while running:
+    dt = clock.get_time() / 1000.0
     mouse_pos = pygame.mouse.get_pos()
     events = pygame.event.get()
     kernel.kernel_instance.update()
@@ -5710,6 +6130,16 @@ while running:
                 events.remove(event)
                 # از آنجایی که لیست رویدادها را تغییر دادیم، حلقه داخلی را بشکن
                 break
+
+                for btn_name, btn_data in cc_buttons.items():
+                    if btn_data.get('type') == 'media_btn' and btn_data.get('rect') and btn_data['rect'].collidepoint(event.pos):
+                        if btn_name == 'media_prev':
+                            play_previous_song()
+                        elif btn_name == 'media_play':
+                            toggle_music_play_pause()
+                        elif btn_name == 'media_next':
+                            play_next_song()
+                        break 
         
     for event in events:
         if event.type == pygame.QUIT: running = False
@@ -5719,6 +6149,16 @@ while running:
             app_instance = running_app_instances.get(app_context['app_id'])
             if app_instance:
                 app_instance.handle_event(event)
+
+        #if app_context.get('app_type') == 'remote' and session_id:
+            #display_server.remove_app(session_id)
+        
+        # بعد از حلقه رویدادها در app_open
+        if app_context.get('app_type') == 'remote':
+            session_id = app_context.get('session_id')
+            if session_id is not None:
+                # فقط رویدادهای داخل محدوده برنامه
+                display_server.send_events_to_app(session_id, events)
 
         if is_low_battery_warning_visible and low_battery_warning_progress > 0.9 and event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             temp_surface_for_buttons = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -5875,6 +6315,7 @@ while running:
                     current_screen, app_animation_progress = "app_opening", 0.0
                     opened_app_icon_rect = clicked_app['rect'].copy()
                     app_name = clicked_app['name']
+                    notes_module = NotesApp(sc, mf, get_current_color, render_persian_text)
                     app_context = {'app_name': app_name, 'screen': 'main'}
                     if app_name in ['notes', 'music', 'browser', 'gallery', 'files', 'messenger']: app_context['screen'] = f"{app_name}_main"
                     if app_name == 'messenger':
@@ -6579,6 +7020,17 @@ while running:
                 if event.key == notes_key_repeat_key:
                     notes_key_repeat_key = None
 
+            if event.type == pygame.MOUSEWHEEL and app_name == 'settings' and app_page in ['custom_wallpaper', 'custom_lock_wallpaper']:
+                target_custom_wp_scroll_offset -= event.y * 40
+                try:
+                    # محاسبه هوشمند بر اساس تعداد فایل‌های واقعی پوشه
+                    num_files = len([f for f in os.listdir('wallpapers') if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))])
+                    thumb_h = int(((SCREEN_WIDTH - 45) // 2) * (SCREEN_HEIGHT / SCREEN_WIDTH))
+                    max_scroll = max(0, math.ceil(num_files / 2) * (thumb_h + 15) - SCREEN_HEIGHT + 150)
+                except FileNotFoundError:
+                    max_scroll = 0
+                target_custom_wp_scroll_offset = max(0, min(target_custom_wp_scroll_offset, max_scroll))
+                
             if event.type == pygame.MOUSEWHEEL and app_name in ['browser', 'files', 'notes']:
                 if app_name == 'browser':
                     if browser_manager is not None and browser_manager.get_active_tab():
@@ -6607,6 +7059,31 @@ while running:
                                 clicked_on_menu = True; break
                         is_notes_context_menu_open = False
                         if clicked_on_menu: continue
+                    # --- بررسی کلیک‌های SuperIsland ---
+                    if is_superisland_enabled and superisland_state != 'hidden':
+                        temp_si_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+                        si_buttons = draw_superisland(temp_si_surf)
+                        
+                        # اگر منو باز است و روی دکمه‌های کنترل کلیک شده
+                        if superisland_state == 'expanded':
+                            if si_buttons.get('si_play') and si_buttons['si_play'].collidepoint(event.pos):
+                                toggle_music_play_pause()
+                                continue
+                            elif si_buttons.get('si_next') and si_buttons['si_next'].collidepoint(event.pos):
+                                play_next_song()
+                                continue
+                            elif si_buttons.get('si_prev') and si_buttons['si_prev'].collidepoint(event.pos):
+                                play_previous_song()
+                                continue
+                            elif not si_buttons.get('si_main').collidepoint(event.pos):
+                                # کلیک بیرون از جزیره آن را می‌بندد
+                                superisland_state = 'capsule'
+                        
+                        # کلیک برای باز کردن جزیره
+                        if si_buttons.get('si_main') and si_buttons['si_main'].collidepoint(event.pos):
+                            if superisland_state == 'capsule':
+                                superisland_state = 'expanded'
+                            continue
                     temp_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT)); buttons = {}
                     if app_name == 'settings':
                         if app_page == 'main': buttons = draw_settings_main_screen(temp_surf)
@@ -6619,10 +7096,10 @@ while running:
                         elif app_page == 'battery': buttons = draw_settings_battery_screen(temp_surf)
                         elif app_page == 'about': buttons = draw_settings_about_screen(temp_surf)
                     elif app_name == 'notes':
-                        if app_page == 'notes_main': buttons = draw_notes_app_screen(temp_surf)
-                        elif app_page == 'notes_save': buttons = draw_notes_save_screen(temp_surf)
+                        if app_page == 'notes_main': buttons = notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context)
+                        elif app_page == 'notes_save': buttons = notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context)
                         elif app_page == 'notes_open':
-                            buttons = draw_notes_open_screen(temp_surf)
+                            buttons = notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context)
                             for file_item in notes_file_list:
                                 if file_item['rect'].collidepoint(event.pos): active_file_item = file_item; break
                     elif app_name == 'music':
@@ -6736,26 +7213,81 @@ while running:
 
                 if active_button_key and active_button_rect and active_button_rect.collidepoint(event.pos):
                     if app_name == 'files':
-                        if active_button_key == 'back_btn' and files_current_path != '.':
-                            files_current_path = os.path.dirname(files_current_path); files_list = scan_directory(files_current_path)
-                            target_files_scroll_offset, files_scroll_offset = 0.0, 0.0
-                        elif active_button_key.startswith('item_'):
-                            item_index = int(active_button_key.split('_')[1]); clicked_item = files_list[item_index]
-                            if clicked_item['type'] == 'dir':
-                                files_current_path = clicked_item['path']; files_list = scan_directory(files_current_path)
-                                target_files_scroll_offset, files_scroll_offset = 0.0, 0.0
-                            elif clicked_item['type'] == 'app_package':
-                                install_prs_app(clicked_item['path']); files_list = scan_directory(files_current_path)
+                        if event.type == pygame.MOUSEWHEEL:
+                            files_scroll_velocity -= event.y * 12
+                            files_is_user_scrolling = True
+                            files_last_scroll_time = time.time()
+                        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                            files_touch_start_y = event.pos[1]
+                            files_touch_start_offset = target_files_scroll_offset
+                            files_is_user_scrolling = True
+                        elif event.type == pygame.MOUSEMOTION and pygame.mouse.get_pressed()[0]:
+                            if 'files_touch_start_y' in locals():
+                                dy = files_touch_start_y - event.pos[1]
+                                max_scroll = max(0, files_content_height - (SCREEN_HEIGHT - 100))
+                                # مقاومت overscroll
+                                if target_files_scroll_offset <= 0 and dy < 0:
+                                    dy *= files_overscroll_resistance
+                                elif target_files_scroll_offset >= max_scroll and dy > 0:
+                                    dy *= files_overscroll_resistance
+                                target_files_scroll_offset = files_touch_start_offset + dy
+                                files_scroll_velocity = 0
+                        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                            if 'files_touch_start_y' in locals() and 'files_last_move_time' in locals():
+                                dt = time.time() - files_last_move_time
+                                if dt < 0.1:
+                                    dy = files_touch_start_y - event.pos[1]
+                                    files_scroll_velocity = (dy / dt) * 0.5
+                                else:
+                                    files_scroll_velocity = 0
+                                files_is_user_scrolling = False
                             else:
-                                target_app = None
-                                if clicked_item['type'] == 'text': target_app = 'notes'
-                                elif clicked_item['type'] == 'music': target_app = 'music'
-                                elif clicked_item['type'] == 'image': print("Opening images from Files app is not fully supported yet.")
-                                if target_app:
-                                    app_screen_animation_direction = 1
-                                    def set_new_app_context(app=target_app, path=clicked_item['path']):
-                                        app_context.update({'app_name': app, 'screen': f"{app}_main", 'file_path': path})
-                                    app_context.update({'old_screen_draw_func': draw_files_app_screen, 'animation_callback': set_new_app_context})
+                                files_is_user_scrolling = False
+                        elif event.type == pygame.MOUSEMOTION and 'files_touch_start_y' in locals():
+                            files_last_move_time = time.time()
+
+                        if active_button_key == 'back_btn' and files_current_path != '.':
+                            files_current_path = os.path.dirname(files_current_path)
+                            files_list = scan_directory(files_current_path)
+                            target_files_scroll_offset = 0.0
+                            files_scroll_offset = 0.0
+                            files_scroll_velocity = 0.0
+                            files_is_user_scrolling = False
+
+                        elif active_button_key.startswith('item_'):
+                            item_index = int(active_button_key.split('_')[1])
+                            clicked_item = files_list[item_index]
+                            
+                            if clicked_item['type'] == 'dir':
+                                files_current_path = clicked_item['path']
+                                files_list = scan_directory(files_current_path)
+                                target_files_scroll_offset = 0.0
+                                files_scroll_offset = 0.0
+                                files_scroll_velocity = 0.0
+                                files_is_user_scrolling = False
+                            # ---------- رفع باگ اجرای فایل‌ها ----------
+                            elif clicked_item['type'] == 'app_package':
+                                install_prs_app(clicked_item['path'])
+                            elif clicked_item['type'] == 'music':
+                                if clicked_item['path'] not in music_playlist:
+                                    music_playlist.append(clicked_item['path'])
+                                current_track_index = music_playlist.index(clicked_item['path'])
+                                pygame.mixer.music.load(clicked_item['path'])
+                                pygame.mixer.music.play()
+                                
+                                is_music_playing = True
+                                is_music_paused = False
+                                current_track_length, current_album_art_surface = get_track_info(clicked_item['path'])
+                                music_track_name = os.path.basename(clicked_item['path'])
+                                add_unimportant_notification(f"در حال پخش: {clicked_item['name']}")
+                            elif clicked_item['type'] == 'video':
+                                open_video(clicked_item['path'])
+                            elif clicked_item['type'] == 'image':
+                                # چون برنامه مستقلی برای نمایش تکی فایل عکس خارج از گالری ندارید، فعلاً یک اعلان نمایش می‌دهیم
+                                add_unimportant_notification(f"تصویر: {clicked_item['name']}")
+                            else:
+                                add_unimportant_notification(f"فرمت {clicked_item['name']} پشتیبانی نمی‌شود")
+                            
                     if app_name == 'settings':
                         if app_page == 'main':
                             if active_button_key == 'wallpaper_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': draw_settings_main_screen, 'animation_callback': lambda: app_context.update({'screen': 'wallpaper'})})
@@ -6794,8 +7326,11 @@ while running:
                                 'about': draw_settings_about_screen,
                                 'battery': draw_settings_battery_screen,
                             }
+                            
                             # (توجه: صفحه 'language' در بالا مدیریت شد)
                             old_func = old_func_name_map.get(app_page, draw_settings_main_screen)
+
+                            
 
                             target_screen = 'main'
                             if app_page == 'custom_wallpaper': target_screen = 'wallpaper'
@@ -6830,6 +7365,9 @@ while running:
                                     except pygame.error as e: print(f"Error setting new lock wallpaper: {e}")
                             elif app_page == 'display' and active_button_key == 'dark_mode_toggle':
                                 is_dark_mode = not is_dark_mode; is_theme_animating = True; theme_animation_direction = 1 if is_dark_mode else -1; save_settings()
+                            elif app_page == 'display' and active_button_key == 'superisland_toggle':
+                                is_superisland_enabled = not is_superisland_enabled
+                                save_settings()
                             elif app_page == 'lock_screen':
                                 if active_button_key.startswith('style_'): lock_screen_style = active_button_key.split('_')[1]; save_settings()
                                 elif active_button_key == 'custom_lock_wallpaper_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': draw_settings_lock_screen_screen, 'animation_callback': lambda: app_context.update({'screen': 'custom_lock_wallpaper'})})
@@ -6839,23 +7377,38 @@ while running:
                                     is_depth_effect_enabled = not is_depth_effect_enabled
                                     if is_depth_effect_enabled: process_depth_effect_image(current_lock_screen_wallpaper_image)
                                     save_settings()
+                            elif app_page == 'about' and active_button_key == 'logo_btn':
+                                current_time = time.time()
+                                # بررسی اینکه آیا کلیک‌ها سریع و پشت سر هم بوده‌اند
+                                if current_time - last_about_logo_click_time < 0.5:
+                                    about_logo_click_count += 1
+                                else:
+                                    about_logo_click_count = 1
+                                last_about_logo_click_time = current_time
+                                
+                                # فعال‌سازی با ۵ کلیک پشت سر هم
+                                if about_logo_click_count >= 5 and not is_developer_mode:
+                                    is_developer_mode = True
+                                    add_unimportant_notification("حالت توسعه دهنده فعال شد")
+                                    # راه‌اندازی ترمینال در پس‌زمینه
+                                    threading.Thread(target=developer_terminal_thread, daemon=True).start()
                     elif app_name == 'notes':
                         if app_page == 'notes_main':
-                            if active_button_key == 'save_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': draw_notes_app_screen, 'animation_callback': lambda: app_context.update({'screen': 'notes_save'})})
-                            elif active_button_key == 'open_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': draw_notes_app_screen, 'animation_callback': lambda: app_context.update({'screen': 'notes_open'})})
+                            if active_button_key == 'save_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context), 'animation_callback': lambda: app_context.update({'screen': 'notes_save'})})
+                            elif active_button_key == 'open_btn': app_screen_animation_direction = 1; app_context.update({'old_screen_draw_func': notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context), 'animation_callback': lambda: app_context.update({'screen': 'notes_open'})})
                         elif app_page == 'notes_save':
-                            if active_button_key == 'back_btn': app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': draw_notes_save_screen, 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
+                            if active_button_key == 'back_btn': app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context), 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
                             elif active_button_key == 'confirm_btn':
                                 try:
                                     with open(os.path.join('notes', notes_save_filename), 'w', encoding='utf-8') as f: f.write(notes_text)
-                                    app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': draw_notes_save_screen, 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
+                                    app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context), 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
                                 except IOError as e: print(f"Error saving file: {e}")
                         elif app_page == 'notes_open':
-                            if active_button_key == 'back_btn': app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': draw_notes_open_screen, 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
+                            if active_button_key == 'back_btn': app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context), 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
                             elif active_file_item:
                                 try:
                                     with open(os.path.join('notes', active_file_item['name']), 'r', encoding='utf-8') as f: notes_text = f.read()
-                                    app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': draw_notes_open_screen, 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
+                                    app_screen_animation_direction = -1; app_context.update({'old_screen_draw_func': notes_app.draw(temp_surf, SCREEN_WIDTH, SCREEN_HEIGHT, app_context), 'animation_callback': lambda: app_context.update({'screen': 'notes_main'})})
                                 except IOError as e: print(f"Error opening file: {e}")
                     elif app_name == 'music':
                         for key in music_button_states: music_button_states[key]['pressed'] = False
@@ -7120,6 +7673,22 @@ while running:
                     target_offset, home_page_offset = 0, 0
             elif not is_dragging_icon: home_page_offset += (0 - home_page_offset) * 0.25
 
+    if music_transition['active']:
+        music_transition['progress'] += dt / music_transition['duration']
+        if music_transition['progress'] >= 1.0:
+            # پایان ترانزیشن
+            music_transition['active'] = False
+            current_track_index = music_transition['new_track_index']
+            # اطمینان از همگام شدن متغیرهای دیگر
+            if music_transition['new_track_index'] != -1:
+                music_track_name = music_transition['new_track_name']
+                # current_album_art_surface قبلاً به‌روز شده
+            music_transition['old_art'] = None
+            music_transition['new_art'] = None
+            # بازنشانی مقیاس کاور
+            target_music_art_scale = 1.0
+            music_art_scale = 1.0
+
     # --------------------------
     #         رسم فریم
     # --------------------------
@@ -7168,102 +7737,59 @@ while running:
         elif current_screen == "recents_closing" and recents_animation_progress <= 0.0: current_screen = "home"
 
     elif current_screen in ["app_opening", "app_closing"]:
-        # 1. مدیریت پیشرفت زمان
-        animation_speed = 0.035 # سرعت انیمیشن
+        # استفاده از dt برای حرکت کاملا یکنواخت حتی در صورت افت فریم
+        animation_speed = 2.5
         if current_screen == "app_opening": 
-            app_animation_progress += animation_speed
+            app_animation_progress += animation_speed * dt
         else: 
-            app_animation_progress -= animation_speed
+            app_animation_progress -= animation_speed * dt
             
-        # محدود کردن بین 0 و 1
         app_animation_progress = max(0.0, min(1.0, app_animation_progress))
 
-        # 2. محاسبه منحنی حرکت (iOS Easing)
         progress = ios_ease(app_animation_progress)
 
-        # 3. رسم پسزمینه (Home Screen) با افکت عقب رفتن (Zoom Out)
-        # در iOS وقتی برنامه باز میشود، صفحه اصلی کمی کوچک میشود
         draw_main_background(screen)
+        bg_scale = 1.0 - (0.08 * progress) # زوم بک ملایم‌تر صفحه اصلی
         
-        # مقیاس صفحه خانه: از 1.0 به 0.9 میرسد
-        bg_scale = 1.0 - (0.1 * progress)
-        # روشنایی صفحه خانه: تیره میشود
-        bg_alpha = 255
-        
-        # رسم المانهای ثابت (داک و ...)
         draw_home_screen_static_elements()
+        home_surf, home_rect = draw_home_screen_content(home_screen_surface, 0, scale=bg_scale, alpha=255)
         
-        # رسم آیکونها با مقیاس محاسبه شده
-        # نکته: ما از تابع draw_home_screen_content شما استفاده میکنیم اما با اسکیل جدید
-        home_surf, home_rect = draw_home_screen_content(home_screen_surface, 0, scale=bg_scale, alpha=bg_alpha)
+        # تاریک شدن ملایم صفحه زیرین
+        darken_layer = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        darken_layer.fill((0, 0, 0, int(80 * progress)))
+        home_surf.blit(darken_layer, (0,0))
+        
         screen.blit(home_surf, home_rect)
 
-        # 4. محاسبه هندسه انیمیشن (تبدیل آیکون به تمام صفحه)
         start_rect = opened_app_icon_rect
-        # هدف نهایی تمام صفحه است
         end_rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
 
-        # درونیابی موقعیت و اندازه (Interpolation)
         current_x = start_rect.x + (end_rect.x - start_rect.x) * progress
         current_y = start_rect.y + (end_rect.y - start_rect.y) * progress
-        current_w = start_rect.width + (end_rect.width - start_rect.width) * progress
-        current_h = start_rect.height + (end_rect.height - start_rect.height) * progress
+        current_w = max(1, start_rect.width + (end_rect.width - start_rect.width) * progress)
+        current_h = max(1, start_rect.height + (end_rect.height - start_rect.height) * progress)
         
-        current_rect = pygame.Rect(current_x, current_y, current_w, current_h)
-
-        # 5. محاسبه شعاع گوشهها (Morphing Radius)
-        # آیکونها گرد هستند (مثلا 20)، صفحه برنامه تیزتر است (مثلا 0 یا 10)
-        start_radius = 22 # شعاع آیکون
-        end_radius = 0    # شعاع صفحه کامل (در آیفونهای جدید حدود 40 است، در اینجا 0 برای پر کردن کامل)
-        # در نیمه اول انیمیشن شعاع را سریع تغییر میدهیم
-        current_radius = start_radius + (end_radius - start_radius) * progress 
+        current_radius = 22 + (0 - 22) * progress 
         if current_radius < 0: current_radius = 0
 
-        # 6. رسم محتوای برنامه (The App Snapshot)
-        # اگر اسنپشات نداشتیم (برای اطمینان)، یک سطح رنگی بساز
         if target_app_snapshot is None:
              target_app_snapshot = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
              target_app_snapshot.fill(get_current_color('settings_bg'))
 
-        # تغییر سایز تصویر برنامه متناسب با سایز فعلی انیمیشن
-        # نکته مهم: برای کیفیت بهتر، از smoothscale استفاده میکنیم
-        # اما برای پرفورمنس در فریمهای میانی scale معمولی کافی است
-        if current_w > 0 and current_h > 0:
-            try:
-                scaled_app = pygame.transform.smoothscale(target_app_snapshot, (int(current_w), int(current_h)))
-                
-                # اعمال گوشههای گرد روی تصویر برنامه (Masking)
-                # ساخت یک سطح جدید برای برنامه همراه با ماسک
-                final_app_surface = pygame.Surface((int(current_w), int(current_h)), pygame.SRCALPHA)
-                
-                # کشیدن ماسک سفید (شکل کلی)
-                draw_rounded_rect(final_app_surface, final_app_surface.get_rect(), (255, 255, 255, 255), current_radius)
-                
-                # ترکیب تصویر برنامه با ماسک (فقط جاهایی که ماسک هست، تصویر دیده شود)
-                # پرچم BLEND_RGBA_MIN یا MULT برای ماسک کردن استفاده میشود
-                # روش سادهتر در pygame:
-                # 1. تصویر را بکش
-                # 2. گوشهها را پاک کن (سخت است)
-                # روش انتخابی: استفاده از ویژگی blending
-                
-                # راه حل ماسک صحیح:
-                mask = pygame.Surface((int(current_w), int(current_h)), pygame.SRCALPHA)
-                draw_rounded_rect(mask, mask.get_rect(), (255, 255, 255, 255), current_radius)
-                
-                # کپی تصویر اسکیل شده
-                temp_render = scaled_app.copy()
-                # اعمال ماسک روی تصویر
-                temp_render.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                
-                # رسم نهایی روی صفحه
-                screen.blit(temp_render, (current_x, current_y))
-
-            except ValueError:
-                pass # جلوگیری از خطای ابعاد 0
-
-        # رسم نوار وضعیت روی انیمیشن (در iOS نوار وضعیت محو و ظاهر میشود)
-        # اما اینجا برای سادگی همیشه نشان میدهیم
-        # draw_status_bar()
+        # ترفند حیاتی برای پرفورمنس: استفاده از scale سریع حین حرکت و smoothscale فقط در ابتدا و انتها
+        if progress > 0.05 and progress < 0.95:
+            scaled_app = pygame.transform.scale(target_app_snapshot, (int(current_w), int(current_h)))
+        else:
+            scaled_app = pygame.transform.smoothscale(target_app_snapshot, (int(current_w), int(current_h)))
+            
+        if scaled_app.get_flags() & pygame.SRCALPHA == 0:
+            scaled_app = scaled_app.convert_alpha()
+            
+        mask = pygame.Surface((int(current_w), int(current_h)), pygame.SRCALPHA)
+        draw_rounded_rect(mask, mask.get_rect(), (255, 255, 255, 255), current_radius)
+        scaled_app.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        
+        screen.blit(scaled_app, (current_x, current_y))
         
         # 7. بررسی پایان انیمیشن
         if current_screen == "app_opening" and app_animation_progress >= 1.0:
@@ -7272,6 +7798,31 @@ while running:
             # --- کپی از لاجیک اصلی شما ---
             app_name = app_context.get('app_name')
             app_id = app_context.get('app_id', app_name)
+
+                # === اضافه کردن پشتیبانی از برنامه‌های remote ===
+            if app_context.get('app_type') == 'remote':
+                app_id = app_context['app_id']
+                install_path = os.path.join('installed_apps', app_id)
+                manifest_path = os.path.join(install_path, 'manifest.json')
+                try:
+                    with open(manifest_path, 'r') as f:
+                        manifest = json.load(f)
+                    runtime = manifest.get('runtime', 'python')
+                    main_file = manifest['main_file']
+                    env = os.environ.copy()
+                    env['PARSOS_DISPLAY'] = '127.0.0.1:9500'
+                    cmd = [runtime, main_file] if runtime != 'binary' else [os.path.join(install_path, main_file)]
+                    subprocess.Popen(cmd, cwd=install_path, env=env,
+                                    stdout=sys.stdout, stderr=sys.stderr)
+                    # بعداً وقتی کلاینت وصل شد session_id را تنظیم می‌کنیم
+                    # می‌توانیم یک نگاشت موقت بسازیم یا از app_id استفاده کنیم.
+                    # برای سادگی، session_id همان app_id را موقتاً می‌گذاریم
+                    # ولی بهتر است از طریق شناسهٔ واقعی سرور این کار را بکنیم.
+                    # نمایش سرور خودش session تولید می‌کند. ما اینجا صبر نمی‌کنیم.
+                    # در draw_app_screen با app_id چک می‌کنیم.
+                except Exception as e:
+                    print(f"Failed to launch remote app: {e}")
+                    current_screen = "home"  # برگشت به خانه
             
             if app_context.get('is_external_app'):
                 # (همان کدهای قبلی برای اجرای native یا integrated)
@@ -7416,6 +7967,17 @@ while running:
                 
                 screen.blit(scaled_app, (target_x, target_y))
 
+            if current_screen == "app_open" and app_context.get('app_type') == 'remote':
+                # پیدا کردن session_id مربوطه (فرض می‌کنیم اولین جلسه)
+                target_session = None
+                with display_server.lock:
+                    for sid, app in display_server.apps.items():
+                        if app.is_connected:
+                            target_session = sid
+                            break
+                if target_session is not None:
+                    display_server.send_events_to_app(target_session, events)
+
             # رسم نوار هوم (Home Indicator)
             indicator_surface = pygame.Surface((130, 5), pygame.SRCALPHA)
             draw_rounded_rect(indicator_surface, indicator_surface.get_rect(), (255, 255, 255, 150), 2.5)
@@ -7425,8 +7987,12 @@ while running:
         else:
             draw_app_screen()
 
+    notes_module = NotesApp(sc, mf, get_current_color, render_persian_text)
+
     if app_context.get('app_name') == 'gallery' and is_gallery_fullscreen: draw_gallery_fullscreen_view(screen)
     if app_context.get('app_name') == 'gallery' and is_video_playing: draw_video_player(screen)
+    if app_context.get('app_name') == 'notes':
+        notes_module.handle_event(event, app_context)
     if opened_folder is not None: draw_folder_view()
 
     if notification_center_progress > 0: draw_notification_center(screen, notification_center_progress)
@@ -7437,6 +8003,8 @@ while running:
 
     draw_heads_up_notification(screen)
     draw_unimportant_notifications(screen)
+
+    draw_superisland(screen)
 
     if language_picker_progress > 0:
         draw_language_picker(screen, language_picker_progress)
@@ -7450,4 +8018,4 @@ if browser_manager:
     browser_manager.quit()
     
 save_layout(); save_settings(); save_notes()
-pygame.quit(); sys.exit() 
+pygame.quit(); sys.exit()
