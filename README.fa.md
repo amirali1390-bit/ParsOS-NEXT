@@ -3,15 +3,14 @@
 [**English**](./README.md) | **فارسی (Persian)**
 
 </div>
-<img width="500" height="500" alt="Logo‏‏ (2)" src="https://github.com/user-attachments/assets/85593e51-4cea-4390-9141-c63dff20e1cd" />
+<img width="1890" height="1417" alt="Logo" src="https://github.com/user-attachments/assets/5bf09ae8-4e17-4d2d-bbee-44a0fce76b77" />
 
 
 # 🚀 ParsOS NEXT
 
-این یک شبیه‌ساز کامل سیستم‌عامل موبایل است که با استفاده از پایتون و Pygame ساخته شده است.
-این پروژه دارای انیمیشن‌های روان، مدیریت برنامه‌ها، مرکز کنترل، مرکز اعلانات، افکت‌های بلور شیشه‌ای و حتی جلوه عمق (Depth Effect) برای صفحه قفل است.
-
-<img width="499" height="911" alt="Home screen" src="https://github.com/user-attachments/assets/7dbc0fc6-9e6e-49b2-822b-0a78d5ef7870" />
+این یه شبیه ساز سیستم عامل هستش که ظاهر و رابط کاربری یک سیستم عامل رو شبیه سازی می کنه و یه سیستم عامل واقعی نیست. این شبیه ساز افکت هایی مثل بلور و انیمیشن ها رو پشتیبانی می کنه و برنامه های داخلی مثل گالری و مرورگر وب(هنوز یکم مشکل داره) و تنظیمات و یادداشت ها و موزیک پلیر و فایل اکسپلولر رو داره و با فرمت اختصاصی .prs میتونین توش برنامه نصب کنین. 
+ 
+<img width="1890" height="1417" alt="Poster" src="https://github.com/user-attachments/assets/67709205-4daa-4567-944d-6e2c9cbdbac0" />
 
 ## 🏁 شروع به کار
 
@@ -29,5 +28,6 @@ pip install mutagen
 pip install rembg
 pip install Pillow
 ```
+(برای سرعت و عملکرد بهتر از کتابخونه pygame-ce استفاده کنید که همون نسخه فورک پای گیم هستش ولی سرعت و قدرت بیشتری داره)
 ### برای تماشای عملکرد این پروژه از اینجا بازدید کنید:
 https://aparat.com/v/chs00u7
