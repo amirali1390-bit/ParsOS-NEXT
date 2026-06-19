@@ -24,7 +24,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from display_server import DisplayServer, RemoteApp
-from apps.notes import NotesApp
+from notes import NotesApp
 import shutil
 
 try:
