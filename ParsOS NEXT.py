@@ -2,8 +2,6 @@ import pygame
 import kernel
 import datetime
 import sys
-import arabic_reshaper
-from bidi.algorithm import get_display
 import psutil
 import math
 import time
@@ -24,8 +22,16 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from display_server import DisplayServer, RemoteApp
-from notes import NotesApp
+from apps.notes import NotesApp
 import shutil
+try:
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+    bidi_available = True
+except ImportError:
+    bidi_available = False
+    print("Warning: 'arabic_reshaper' or 'python-bidi' not found. Persian text might not render correctly.")
+    print("Install them using: pip install arabic-reshaper python-bidi")
 
 try:
     from bs4 import BeautifulSoup
@@ -1617,42 +1623,78 @@ def find_icon_by_app_id(app_id, icon_list):
                 return found_in_folder
     return None
 
-def draw_cc_slider(surface, rect, progress, icon_char, text_color):
-    """(جدید) یک اسلایدر سفارشی برای مرکز کنترل رسم میکند."""
-    bar_rect = rect.inflate(-40, -rect.height * 0.7)
-    draw_rounded_rect(surface, bar_rect, (80, 80, 90) if is_dark_mode else (200, 200, 205), 8)
-    
-    progress_width = bar_rect.width * progress
-    progress_rect = pygame.Rect(bar_rect.left, bar_rect.top, progress_width, bar_rect.height)
-    draw_rounded_rect(surface, progress_rect, (255, 255, 255) if is_dark_mode else (80, 80, 80), 8)
-    
-    handle_pos = (bar_rect.left + progress_width, bar_rect.centery)
-    pygame.draw.circle(surface, WHITE, handle_pos, 12)
-    
-    icon_font = mf(18)
-    icon_surf = icon_font.render(icon_char, True, text_color)
-    surface.blit(icon_surf, icon_surf.get_rect(center=(rect.left + 20, bar_rect.centery)))
+def draw_cc_slider(surface, rect, progress, icon_char, text_color, vertical=False):
+    """یک اسلایدر سفارشی برای مرکز کنترل رسم می‌کند.
+    اگر vertical=True باشد، اسلایدر به صورت عمودی (از پایین به بالا پر می‌شود) رسم می‌شود،
+    دقیقاً شبیه اسلایدرهای روشنایی/صدا در مرکز کنترل HyperOS."""
+    if not vertical:
+        bar_rect = rect.inflate(-40, -rect.height * 0.7)
+        draw_rounded_rect(surface, bar_rect, (80, 80, 90) if is_dark_mode else (200, 200, 205), 8)
 
-def draw_cc_circular_toggle(surface, rect, button_data, text_color, alpha):
-    """(جدید) یک دکمه تاگل دایرهای برای مرکز کنترل رسم میکند."""
+        progress_width = bar_rect.width * progress
+        progress_rect = pygame.Rect(bar_rect.left, bar_rect.top, progress_width, bar_rect.height)
+        draw_rounded_rect(surface, progress_rect, (255, 255, 255) if is_dark_mode else (80, 80, 80), 8)
+
+        handle_pos = (bar_rect.left + progress_width, bar_rect.centery)
+        pygame.draw.circle(surface, WHITE, handle_pos, 12)
+
+        icon_font = mf(18)
+        icon_surf = icon_font.render(icon_char, True, text_color)
+        surface.blit(icon_surf, icon_surf.get_rect(center=(rect.left + 20, bar_rect.centery)))
+        return
+
+    # ----- حالت عمودی -----
+    track_radius = min(rect.width, 999) // 2
+    track_rect = rect.copy()
+
+    # رنگ زمینهی ستون (تیره و نیمه‌شفاف، مشابه تصویر مرجع)
+    track_bg = (45, 38, 34) if is_dark_mode else (235, 225, 210)
+    draw_rounded_rect(surface, track_rect, track_bg, track_radius)
+
+    # بخش پر شده از پایین به بالا
+    fill_height = int(track_rect.height * max(0.0, min(1.0, progress)))
+    fill_rect = pygame.Rect(track_rect.left, track_rect.bottom - fill_height, track_rect.width, fill_height)
+    fill_color = (250, 245, 235) if not is_dark_mode else (235, 225, 205)
+    # ماسک گرد فقط برای ناحیه‌ی پر شده، با کلیپ کردن داخل ستون اصلی
+    fill_surf = pygame.Surface(track_rect.size, pygame.SRCALPHA)
+    draw_rounded_rect(fill_surf, pygame.Rect(0, 0, track_rect.width, track_rect.height), fill_color, track_radius)
+    clip_rect = pygame.Rect(0, track_rect.height - fill_height, track_rect.width, fill_height)
+    fill_surf_clipped = pygame.Surface(track_rect.size, pygame.SRCALPHA)
+    fill_surf_clipped.blit(fill_surf, (0, 0), area=clip_rect)
+    surface.blit(fill_surf_clipped, track_rect.topleft)
+
+    # آیکون بالای ستون (وقتی پر نشده) - تیره روی پس‌زمینه روشن ستون
+    icon_font = mf(16)
+    icon_in_fill = fill_height > track_rect.height * 0.22
+    icon_color = (60, 50, 40) if icon_in_fill else text_color
+    icon_surf = icon_font.render(icon_char, True, icon_color)
+    icon_surf_rect = icon_surf.get_rect(center=(track_rect.centerx, track_rect.top + 26))
+    surface.blit(icon_surf, icon_surf_rect)
+
+
+def draw_cc_circular_toggle(surface, rect, button_data, text_color, alpha, show_label=False):
+    """یک دکمه تاگل دایره‌ای برای مرکز کنترل رسم می‌کند.
+    در طرح جدید (مشابه HyperOS)، دکمه‌ها کاملاً دایره‌ای و بدون برچسب متنی زیر آن‌ها هستند؛
+    وقتی غیرفعال‌اند با رنگ گرم نیمه‌شفاف و وقتی فعال‌اند با رنگ تاکیدی روشن نمایش داده می‌شوند."""
     progress = button_data.get('color_progress', 0.0)
-    base_color = (60, 60, 70) if is_dark_mode else (220, 220, 225)
-    active_color = (50, 150, 255)
-    
+    base_color = (60, 48, 42) if is_dark_mode else (70, 55, 48)
+    active_color = (255, 244, 230)
+
     current_color = tuple(int(b + (a - b) * progress) for b, a in zip(base_color, active_color))
-    final_color = (*current_color, int(alpha * 0.9))
-    
+    final_color = (*current_color, int(alpha * 0.85))
+
     pygame.draw.circle(surface, final_color, rect.center, rect.width // 2)
-    
+
     icon_font = mf(20)
-    icon_color = WHITE if is_dark_mode or progress > 0.5 else BLACK
+    icon_color = (40, 32, 28) if progress > 0.5 else (235, 225, 215)
     icon_surf = icon_font.render(button_data['icon'], True, icon_color)
     icon_surf.set_alpha(alpha)
     surface.blit(icon_surf, icon_surf.get_rect(center=rect.center))
 
-    label_surf = render_persian_text(button_data['label'], status_bar_font, text_color)
-    label_surf.set_alpha(alpha)
-    surface.blit(label_surf, label_surf.get_rect(centerx=rect.centerx, top=rect.bottom + 8))
+    if show_label:
+        label_surf = render_persian_text(button_data['label'], status_bar_font, text_color)
+        label_surf.set_alpha(alpha)
+        surface.blit(label_surf, label_surf.get_rect(centerx=rect.centerx, top=rect.bottom + 8))
     
 # (جدید) تابع برای بارگذاری صفحه وب در یک نخ جدا
 def fetch_web_page_thread(url_to_load, result_key):
@@ -1857,10 +1899,13 @@ def render_persian_text(text, font, color, is_note=False):
     if is_note:
         if not text: return []
         lines, surfaces = text.split('\n'), []
-        for line in lines: surfaces.append(font.render(get_display(arabic_reshaper.reshape(line)), True, color))
+        for line in lines:
+            disp_line = get_display(arabic_reshaper.reshape(line)) if bidi_available else line
+            surfaces.append(font.render(disp_line, True, color))
         return surfaces
     if not text: return font.render("", True, color)
-    return font.render(get_display(arabic_reshaper.reshape(text)), True, color)
+    disp_text = get_display(arabic_reshaper.reshape(text)) if bidi_available else text
+    return font.render(disp_text, True, color)
 
 notes_app = NotesApp(sc, mf, get_current_color, render_persian_text)
 
@@ -1950,6 +1995,9 @@ def start_music_transition(direction):
     global music_transition, current_track_index, music_track_name, current_album_art_surface
     global cached_blurred_bg, last_played_track_name, music_art_scale, target_music_art_scale
     global music_playback_start_time_offset   # <-- اضافه شد
+    global current_track_length   # <-- رفع باگ: بدون این خط current_track_length به صورت محلی ساخته می‌شد
+                                   # و مقدار جدید آن هرگز به متغیر سراسری نمی‌رسید؛ در نتیجه زمان کل
+                                   # آهنگ (و پیشرفت نوار زمان) بعد از رفتن به آهنگ بعدی/قبلی آپدیت نمی‌شد.
 
     if music_transition['active']:
         return
@@ -2855,7 +2903,7 @@ def draw_messenger_app(surface):
         surface.blit(render_persian_text("< بازگشت", tf3, WHITE), render_persian_text("< بازگشت", tf3, WHITE).get_rect(center=bk.center))
         clickable['back'] = bk
 
-        ht = render_persian_text("مخاطب جدید", title_f, txt_col)
+        ht = render_persian_text(get_string("new_contact", "مخاطب جدید"), title_f, txt_col)
         surface.blit(ht, ht.get_rect(right=sw-16, top=54))
 
         # IP محلی کاربر
@@ -2919,7 +2967,7 @@ def draw_messenger_app(surface):
         can_add = bool(messenger_new_ip_text.strip())
         add_btn = pygame.Rect(sw//2-80, y_f, 160, 46)
         pygame.draw.rect(surface, accent2 if can_add else (120,120,130), add_btn, border_radius=14)
-        add_s = render_persian_text("افزودن مخاطب", tf, WHITE)
+        add_s = render_persian_text(get_string("add_contact", "افزودن مخاطب"), tf, WHITE)
         surface.blit(add_s, add_s.get_rect(center=add_btn.center))
         clickable['add_contact'] = add_btn
 
@@ -2950,7 +2998,7 @@ def draw_messenger_app(surface):
         surface.blit(header, (0,0))
         pygame.draw.line(surface, sep_col, (0, 90), (sw, 90))
 
-        ht = render_persian_text("پیام‌ها", title_f, txt_col)
+        ht = render_persian_text(get_string("messages", "پیام‌ها"), title_f, txt_col)
         surface.blit(ht, ht.get_rect(right=sw-20, top=52))
 
         # دکمه مخاطب جدید
@@ -3229,7 +3277,7 @@ def draw_files_app_screen(surface):
     # ---- پیام خالی بودن ----
     if not files_list:
         empty_font = mf(18)
-        empty_surf = render_persian_text("این پوشه خالی است", empty_font, sub_text_color)
+        empty_surf = render_persian_text(get_string("folder_empty", "این پوشه خالی است"), empty_font, sub_text_color)
         surface.blit(empty_surf, empty_surf.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)))
 
     # ---- هدر با افکت شیشه‌ای ----
@@ -3245,7 +3293,7 @@ def draw_files_app_screen(surface):
         clickable_rects['back_btn'] = back_btn_rect
 
     # نمایش عنوان مسیر
-    path_display = "حافظه داخلی" if files_current_path == '.' else os.path.basename(os.path.abspath(files_current_path))
+    path_display = get_string("internal_storage", "حافظه داخلی") if files_current_path == '.' else os.path.basename(os.path.abspath(files_current_path))
     title_font = mf(24)
     title_surf = render_persian_text(path_display, title_font, get_current_color('settings_title'))
     header_surf.blit(title_surf, title_surf.get_rect(centerx=SCREEN_WIDTH / 2, top=54))
@@ -3288,91 +3336,120 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
 
     if ease_progress > 0.8:
         content_alpha = (ease_progress - 0.8) / 0.2 * 255
-        text_color = (*WHITE, content_alpha) if is_dark_mode else (*BLACK, content_alpha)
-        sub_text_color = (*LIGHT_GRAY, content_alpha) if is_dark_mode else (*GRAY, content_alpha)
+        # طرح جدید با پایه‌ی رنگ گرم (الهام گرفته از HyperOS): کارت‌ها روشن و کرمی، آیکون‌های گرد تیره/نیمه‌شفاف
+        text_color = (*WHITE, content_alpha) if is_dark_mode else (40, 32, 26, content_alpha)
+        sub_text_color = (*LIGHT_GRAY, content_alpha) if is_dark_mode else (110, 95, 85, content_alpha)
+        card_bg = (44, 38, 34, int(content_alpha * 0.78)) if is_dark_mode else (250, 244, 232, int(content_alpha * 0.95))
 
-        widget_padding = 15
+        widget_padding = 14
         current_y_pos = widget_padding
 
         # --- 1. دکمههای بزرگ (Wi-Fi & Data) ---
         top_widget_width = (current_width - widget_padding * 3) / 2
-        top_widget_height = 80
-        
+        top_widget_height = 76
+
         wifi_rect_base = pygame.Rect(widget_padding, current_y_pos, top_widget_width, top_widget_height)
         data_rect_base = pygame.Rect(wifi_rect_base.right + widget_padding, current_y_pos, top_widget_width, top_widget_height)
-        
+
         # ذخیره Rect کلی برای تشخیص کلیک
         cc_buttons['wifi']['rect'] = wifi_rect_base.move(cc_rect.topleft)
         cc_buttons['data']['rect'] = data_rect_base.move(cc_rect.topleft)
 
-        # رسم دکمه وایفای
+        # رسم دکمه وایفای - کارت روشن کرمی با آیکون و وضعیت
         btn_wifi = cc_buttons['wifi']
-        base_color = (50, 50, 60) if is_dark_mode else (220, 220, 225)
-        active_color = (50, 150, 255)
+        base_color = (60, 52, 46) if is_dark_mode else (250, 244, 232)
+        active_color = (60, 130, 250) if is_dark_mode else (245, 240, 225)
         wifi_color = tuple(int(b + (a - b) * btn_wifi['color_progress']) for b, a in zip(base_color, active_color))
-        final_wifi_color = (*wifi_color, int(content_alpha * 0.8))
-        draw_rounded_rect(cc_surface, wifi_rect_base, final_wifi_color, 20)
-        wifi_text_surf = render_persian_text(get_string(btn_wifi.get('label_key', 'wifi')), text_font, text_color)
-        wifi_text_surf.set_alpha(content_alpha)
-        cc_surface.blit(wifi_text_surf, wifi_text_surf.get_rect(left=wifi_rect_base.left + 15, top=wifi_rect_base.top + 15))
+        final_wifi_color = (*wifi_color, int(content_alpha * 0.95))
+        draw_rounded_rect(cc_surface, wifi_rect_base, final_wifi_color, 24)
+
+        wifi_icon_color = (50, 130, 255) if btn_wifi['color_progress'] > 0.5 else sub_text_color
+        # آیکون وای‌فای به شکل کمان‌های هم‌مرکز (چون آیکون ایموجی ممکن است در همه فونت‌ها موجود نباشد)
+        wifi_icon_center = (wifi_rect_base.left + 26, wifi_rect_base.top + 24)
+        for i, radius in enumerate((4, 9, 14)):
+            arc_rect = pygame.Rect(0, 0, radius * 2, radius * 2)
+            arc_rect.center = wifi_icon_center
+            pygame.draw.arc(cc_surface, wifi_icon_color, arc_rect, math.radians(200), math.radians(340), 2)
+        pygame.draw.circle(cc_surface, wifi_icon_color, wifi_icon_center, 2)
+
+        wifi_label_surf = render_persian_text(get_string(btn_wifi.get('label_key', 'wifi')), mf(15), text_color)
+        wifi_label_surf.set_alpha(content_alpha)
+        cc_surface.blit(wifi_label_surf, wifi_label_surf.get_rect(left=wifi_rect_base.left + 16, top=wifi_rect_base.top + 36))
+        wifi_status_key = 'on' if btn_wifi['is_active'] else 'off'
+        wifi_status_surf = render_persian_text(get_string(wifi_status_key, "متصل" if btn_wifi['is_active'] else "خاموش"), status_bar_font, sub_text_color)
+        wifi_status_surf.set_alpha(content_alpha)
+        cc_surface.blit(wifi_status_surf, wifi_status_surf.get_rect(left=wifi_rect_base.left + 16, top=wifi_rect_base.top + 56))
 
         # رسم دکمه داده
         btn_data = cc_buttons['data']
         data_color = tuple(int(b + (a - b) * btn_data['color_progress']) for b, a in zip(base_color, active_color))
-        final_data_color = (*data_color, int(content_alpha * 0.8))
-        draw_rounded_rect(cc_surface, data_rect_base, final_data_color, 20)
-        data_text_surf = render_persian_text(get_string(btn_data.get('label_key', 'mobile_data')), text_font, text_color)
-        data_text_surf.set_alpha(content_alpha)
-        cc_surface.blit(data_text_surf, data_text_surf.get_rect(left=data_rect_base.left + 15, top=data_rect_base.top + 15))
-        
+        final_data_color = (*data_color, int(content_alpha * 0.95))
+        draw_rounded_rect(cc_surface, data_rect_base, final_data_color, 24)
+
+        data_icon_color = (60, 200, 100) if btn_data['color_progress'] > 0.5 else sub_text_color
+        data_icon_center = (data_rect_base.left + 26, data_rect_base.top + 24)
+        pygame.draw.line(cc_surface, data_icon_color, (data_icon_center[0] - 6, data_icon_center[1] + 8), (data_icon_center[0] + 6, data_icon_center[1] - 8), 3)
+        pygame.draw.line(cc_surface, data_icon_color, (data_icon_center[0] - 6, data_icon_center[1] - 8), (data_icon_center[0] + 6, data_icon_center[1] + 8), 3)
+
+        data_label_surf = render_persian_text(get_string(btn_data.get('label_key', 'mobile_data')), mf(15), text_color)
+        data_label_surf.set_alpha(content_alpha)
+        cc_surface.blit(data_label_surf, data_label_surf.get_rect(left=data_rect_base.left + 16, top=data_rect_base.top + 36))
+        data_status_key = 'on' if btn_data['is_active'] else 'off'
+        data_status_surf = render_persian_text(get_string(data_status_key, "روشن" if btn_data['is_active'] else "خاموش"), status_bar_font, sub_text_color)
+        data_status_surf.set_alpha(content_alpha)
+        cc_surface.blit(data_status_surf, data_status_surf.get_rect(left=data_rect_base.left + 16, top=data_rect_base.top + 56))
+
         current_y_pos += top_widget_height + widget_padding
 
-        # --- 2. ویجت مدیا پلیر (Placeholder) ---
-        media_rect = pygame.Rect(widget_padding, current_y_pos, current_width - widget_padding*2, 80)
-        media_color = (50, 50, 60, int(content_alpha * 0.8)) if is_dark_mode else (220, 220, 225, int(content_alpha * 0.8))
-        draw_rounded_rect(cc_surface, media_rect, media_color, 20)
+        # --- 2. ردیف میانی: مدیا پلیر + اسلایدر روشنایی + اسلایدر صدا (کنار هم، مثل تصویر مرجع) ---
+        row_height = 158
+        slider_col_width = (current_width - widget_padding * 4) * 0.22
+        media_col_width = current_width - widget_padding * 2 - slider_col_width * 2 - widget_padding * 2
+
+        media_rect = pygame.Rect(widget_padding, current_y_pos, media_col_width, row_height)
+        brightness_rect = pygame.Rect(media_rect.right + widget_padding, current_y_pos, slider_col_width, row_height)
+        volume_rect = pygame.Rect(brightness_rect.right + widget_padding, current_y_pos, slider_col_width, row_height)
+
+        draw_rounded_rect(cc_surface, media_rect, card_bg, 24)
 
         # بررسی وجود موسیقی در حال پخش
         if music_playlist and music_track_name != "موسیقی یافت نشد":
-            # ----- کاور کوچک -----
-            cover_size = 50
-            cover_rect = pygame.Rect(media_rect.left + 12, media_rect.centery - cover_size//2, cover_size, cover_size)
+            # ----- کاور بزرگ (بالای کارت مدیا) -----
+            cover_size = 60
+            cover_rect = pygame.Rect(media_rect.left + 14, media_rect.top + 14, cover_size, cover_size)
             if current_album_art_surface:
                 art_small = pygame.transform.smoothscale(current_album_art_surface, (cover_size, cover_size))
                 rounded_cover = pygame.Surface((cover_size, cover_size), pygame.SRCALPHA)
-                draw_rounded_rect(rounded_cover, rounded_cover.get_rect(), (255, 255, 255), 10)
+                draw_rounded_rect(rounded_cover, rounded_cover.get_rect(), (255, 255, 255), 12)
                 rounded_cover.blit(art_small, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 cc_surface.blit(rounded_cover, cover_rect.topleft)
             else:
-                draw_rounded_rect(cc_surface, cover_rect, (100, 100, 110), 10)
-                icon_font = mf(20)
-                icon_s = icon_font.render("♪", True, (200,200,200))
+                draw_rounded_rect(cc_surface, cover_rect, (90, 80, 72) if is_dark_mode else (210, 198, 182), 12)
+                icon_s = mf(22).render("♪", True, (220, 210, 200))
                 icon_s.set_alpha(content_alpha)
                 cc_surface.blit(icon_s, icon_s.get_rect(center=cover_rect.center))
 
-            # ----- نام آهنگ -----
+            # آیکون کست کوچک گوشه‌ی بالا راست کارت (مشابه تصویر مرجع)
+            cast_center = (media_rect.right - 22, media_rect.top + 22)
+            cast_icon = status_bar_font.render("⇄", True, sub_text_color)
+            cast_icon.set_alpha(content_alpha)
+            cc_surface.blit(cast_icon, cast_icon.get_rect(center=cast_center))
+
+            # ----- نام آهنگ (زیر کاور) -----
             name_font = mf(14)
-            track_name_display = music_track_name
-            if len(track_name_display) > 28:
-                track_name_display = track_name_display[:25] + "..."
+            track_name_display = os.path.splitext(music_track_name)[0]
+            if len(track_name_display) > 16:
+                track_name_display = track_name_display[:14] + "..."
             track_surf = render_persian_text(track_name_display, name_font, text_color)
             track_surf.set_alpha(content_alpha)
-            cc_surface.blit(track_surf, track_surf.get_rect(left=cover_rect.right + 12, top=media_rect.top + 18))
+            cc_surface.blit(track_surf, track_surf.get_rect(left=media_rect.left + 14, top=cover_rect.bottom + 8))
 
-            # ----- نام خواننده (placeholder) -----
-            artist_font = mf(11)
-            artist_surf = render_persian_text("ParsOS Music", artist_font, sub_text_color)
-            artist_surf.set_alpha(content_alpha)
-            cc_surface.blit(artist_surf, artist_surf.get_rect(left=cover_rect.right + 12, top=track_surf.get_rect().bottom + 4))
+            # ----- دکمه‌های کنترلی (قبلی، پخش/توقف، بعدی) در پایین کارت مدیا -----
+            btn_size = 30
+            btn_gap = 8
+            btn_y = media_rect.bottom - btn_size - 12
 
-            # ----- دکمه‌های کنترلی (قبلی، پخش/توقف، بعدی) -----
-            btn_size = 36
-            btn_gap = 12
-            total_btns_width = btn_size * 3 + btn_gap * 2
-            btn_start_x = media_rect.right - total_btns_width - 12
-            btn_y = media_rect.centery - btn_size//2
-
-            prev_btn_rect = pygame.Rect(btn_start_x, btn_y, btn_size, btn_size)
+            prev_btn_rect = pygame.Rect(media_rect.left + 14, btn_y, btn_size, btn_size)
             play_btn_rect = pygame.Rect(prev_btn_rect.right + btn_gap, btn_y, btn_size, btn_size)
             next_btn_rect = pygame.Rect(play_btn_rect.right + btn_gap, btn_y, btn_size, btn_size)
 
@@ -3381,76 +3458,83 @@ def draw_control_center(surface, progress, vertical_offset=0.0):
             cc_buttons['media_play'] = {'rect': play_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
             cc_buttons['media_next'] = {'rect': next_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
 
-            # رسم دکمه‌ها
-            btn_bg_color = (80, 80, 90, int(content_alpha * 0.9)) if is_dark_mode else (200, 200, 210, int(content_alpha * 0.9))
-            btn_icon_color = WHITE if is_dark_mode else BLACK
+            btn_icon_color = text_color
 
             # دکمه قبلی
-            pygame.draw.circle(cc_surface, btn_bg_color, prev_btn_rect.center, btn_size//2)
-            prev_icon = mf(16).render("◀", True, btn_icon_color)
+            prev_icon = mf(13).render("◀", True, btn_icon_color)
             prev_icon.set_alpha(content_alpha)
             cc_surface.blit(prev_icon, prev_icon.get_rect(center=prev_btn_rect.center))
 
             # دکمه پخش/توقف
-            pygame.draw.circle(cc_surface, btn_bg_color, play_btn_rect.center, btn_size//2)
             if is_music_playing:
-                play_icon = mf(16).render("⏸", True, btn_icon_color)
+                play_icon = mf(15).render("⏸", True, btn_icon_color)
             else:
-                play_icon = mf(16).render("▶", True, btn_icon_color)
+                play_icon = mf(15).render("▶", True, btn_icon_color)
             play_icon.set_alpha(content_alpha)
             cc_surface.blit(play_icon, play_icon.get_rect(center=play_btn_rect.center))
 
             # دکمه بعدی
-            pygame.draw.circle(cc_surface, btn_bg_color, next_btn_rect.center, btn_size//2)
-            next_icon = mf(16).render("▶", True, btn_icon_color)
-            next_icon = pygame.transform.flip(next_icon, True, False)
+            next_icon = mf(13).render("▶", True, btn_icon_color)
             next_icon.set_alpha(content_alpha)
             cc_surface.blit(next_icon, next_icon.get_rect(center=next_btn_rect.center))
 
         else:
-            # اگر موسیقی در حال پخش نیست، پیام نمایش داده شود
-            media_text_surf = render_persian_text(get_string("no_playback_history"), status_bar_font, sub_text_color)
+            # اگر موسیقی در حال پخش نیست، پیام نمایش داده شود (دقیقا مانند تصویر مرجع: «بدون پخش اخیر»)
+            cast_center = (media_rect.right - 22, media_rect.top + 22)
+            cast_icon = status_bar_font.render("⇄", True, sub_text_color)
+            cast_icon.set_alpha(content_alpha)
+            cc_surface.blit(cast_icon, cast_icon.get_rect(center=cast_center))
+
+            media_text_surf = render_persian_text(get_string("no_playback_history"), mf(13), sub_text_color)
             media_text_surf.set_alpha(content_alpha)
-            cc_surface.blit(media_text_surf, media_text_surf.get_rect(center=media_rect.center))
+            cc_surface.blit(media_text_surf, media_text_surf.get_rect(left=media_rect.left + 14, top=media_rect.top + 18))
 
-        current_y_pos += media_rect.height + widget_padding
+            # دکمه‌های غیرفعال (همچنان قابل کلیک نگه داشته می‌شوند تا ساختار یکسان بماند)
+            btn_size = 30
+            btn_gap = 8
+            btn_y = media_rect.bottom - btn_size - 12
+            prev_btn_rect = pygame.Rect(media_rect.left + 14, btn_y, btn_size, btn_size)
+            play_btn_rect = pygame.Rect(prev_btn_rect.right + btn_gap, btn_y, btn_size, btn_size)
+            next_btn_rect = pygame.Rect(play_btn_rect.right + btn_gap, btn_y, btn_size, btn_size)
+            cc_buttons['media_prev'] = {'rect': prev_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
+            cc_buttons['media_play'] = {'rect': play_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
+            cc_buttons['media_next'] = {'rect': next_btn_rect.move(cc_rect.topleft), 'type': 'media_btn'}
 
-        # --- 3. اسلایدرها (روشنایی و صدا) ---
-        slider_height = 50
-        brightness_rect = pygame.Rect(widget_padding, current_y_pos, current_width - widget_padding*2, slider_height)
-        volume_rect = pygame.Rect(widget_padding, current_y_pos + slider_height + 5, current_width - widget_padding*2, slider_height)
-        
-        # ذخیره Rect کلی برای تشخیص کلیک
+            dim_color = tuple(list(sub_text_color[:3]) + [int(content_alpha * 0.6)])
+            prev_icon = mf(13).render("◀", True, dim_color)
+            cc_surface.blit(prev_icon, prev_icon.get_rect(center=prev_btn_rect.center))
+            play_icon = mf(15).render("▶", True, dim_color)
+            cc_surface.blit(play_icon, play_icon.get_rect(center=play_btn_rect.center))
+            next_icon = mf(13).render("▶", True, dim_color)
+            cc_surface.blit(next_icon, next_icon.get_rect(center=next_btn_rect.center))
+
+        # ذخیره Rect کلی برای تشخیص کلیک روی اسلایدرها (عمودی)
         cc_buttons['brightness_slider'] = {'rect': brightness_rect.move(cc_rect.topleft)}
         cc_buttons['volume_slider'] = {'rect': volume_rect.move(cc_rect.topleft)}
-        
-        slider_bg_color = (40, 40, 50, int(content_alpha * 0.8)) if is_dark_mode else (210, 210, 215, int(content_alpha * 0.8))
-        draw_rounded_rect(cc_surface, brightness_rect, slider_bg_color, 15)
-        draw_rounded_rect(cc_surface, volume_rect, slider_bg_color, 15)
-        
-        draw_cc_slider(cc_surface, brightness_rect, cc_brightness, '☀️', sub_text_color)
-        draw_cc_slider(cc_surface, volume_rect, cc_volume, '🔊', sub_text_color)
 
-        current_y_pos += (slider_height * 2) + 10 + widget_padding
+        draw_cc_slider(cc_surface, brightness_rect, cc_brightness, '☀', sub_text_color, vertical=True)
+        draw_cc_slider(cc_surface, volume_rect, cc_volume, '🔊', sub_text_color, vertical=True)
 
-        # --- 4. گرید دکمههای گرد ---
+        current_y_pos += row_height + widget_padding
+
+        # --- 3. گرید دکمههای گرد (بدون برچسب متنی، دقیقاً مطابق تصویر مرجع) ---
         circular_buttons = [k for k, v in cc_buttons.items() if v.get('type') == 'circular']
         cols = 4
         btn_size = (current_width - (cols + 1) * widget_padding) / cols
-        btn_label_height = 30 # فضا برای لیبل زیر دکمه
-        
+        row_gap = 18  # فاصله‌ی بیشتر بین ردیف‌ها چون دیگر برچسب متنی زیر دکمه نداریم
+
         for i, btn_name in enumerate(circular_buttons):
             row = i // cols
             col = i % cols
-            
+
             x = widget_padding + col * (btn_size + widget_padding)
-            y = current_y_pos + row * (btn_size + btn_label_height + widget_padding)
-            
+            y = current_y_pos + row * (btn_size + row_gap)
+
             btn_rect = pygame.Rect(x, y, btn_size, btn_size)
-            
-            if btn_rect.bottom < current_height - widget_padding: # فقط دکمههایی که جا میشوند را رسم کن
+
+            if btn_rect.bottom < current_height - widget_padding:  # فقط دکمههایی که جا میشوند را رسم کن
                 cc_buttons[btn_name]['rect'] = btn_rect.move(cc_rect.topleft)
-                draw_cc_circular_toggle(cc_surface, btn_rect, cc_buttons[btn_name], sub_text_color, content_alpha)
+                draw_cc_circular_toggle(cc_surface, btn_rect, cc_buttons[btn_name], sub_text_color, content_alpha, show_label=False)
 
     # رسم سطح نهایی CC روی صفحه اصلی
     surface.blit(cc_surface, cc_rect.topleft)
@@ -3907,7 +3991,7 @@ def draw_gallery_editor(surface):
     save_rect = pygame.Rect(sw - 80, 15, 68, 32)
     pygame.draw.rect(surface, (50, 140, 255), save_rect, border_radius=8)
     sf2 = mf(13)
-    ss2 = render_persian_text("ذخیره", sf2, (255, 255, 255))
+    ss2 = render_persian_text(get_string("save", "ذخیره"), sf2, (255, 255, 255))
     surface.blit(ss2, ss2.get_rect(center=save_rect.center))
 
     # ===== TOOLBAR پایین =====
@@ -4553,7 +4637,7 @@ def draw_lock_screen(offset_y):
     if is_depth_effect_enabled and current_lock_screen_subject_image:
         screen.blit(current_lock_screen_subject_image, (0, offset_y))
 
-    swipe_text = render_persian_text("برای باز کردن، به بالا بکشید", text_font, LIGHT_GRAY)
+    swipe_text = render_persian_text(get_string("swipe_to_unlock", "برای باز کردن، به بالا بکشید"), text_font, LIGHT_GRAY)
     screen.blit(swipe_text, swipe_text.get_rect(center=(SCREEN_WIDTH/2, SCREEN_HEIGHT - 50 + offset_y)))
 
 def draw_home_screen_content(surface, offset, scale=1.0, alpha=255, is_folder_view_active=False):
@@ -5022,7 +5106,7 @@ def draw_settings_display_screen(surface):
     surface.blit(title, title.get_rect(centerx=surface.get_width()/2, top=50))
     
     # --- دکمه حالت تاریک ---
-    dark_mode_text = render_persian_text("حالت تاریک", text_font, text_color)
+    dark_mode_text = render_persian_text(get_string("dark_mode", "حالت تاریک"), text_font, text_color)
     surface.blit(dark_mode_text, (surface.get_width() - dark_mode_text.get_width() - 30, 130))
     switch_rect_dm = pygame.Rect(30, 120, 60, 30)
     switch_radius = switch_rect_dm.height / 2
@@ -5034,7 +5118,7 @@ def draw_settings_display_screen(surface):
 
     # --- دکمه SuperIsland ---
     si_y = 190
-    superisland_text = render_persian_text("جزیره پویا (SuperIsland)", text_font, text_color)
+    superisland_text = render_persian_text(get_string("superisland", "جزیره پویا (SuperIsland)"), text_font, text_color)
     surface.blit(superisland_text, (surface.get_width() - superisland_text.get_width() - 30, si_y + 10))
     switch_rect_si = pygame.Rect(30, si_y, 60, 30)
     si_bg_color = tuple(int(off + (on - off) * superisland_switch_progress) for off, on in zip(off_color, on_color))
@@ -5124,7 +5208,7 @@ def draw_settings_lock_screen_screen(surface):
     depth_effect_y_pos = default_lock_bg_btn.bottom + 20
     # این گزینه فقط زمانی نمایش داده میشود که تصویر پسزمینه سفارشی باشد و کتابخانههای لازم نصب باشند
     if lock_screen_wallpaper_path and depth_effect_available:
-        depth_effect_text = render_persian_text("جلوه عمق", text_font, text_color)
+        depth_effect_text = render_persian_text(get_string("depth_effect", "جلوه عمق"), text_font, text_color)
         surface.blit(depth_effect_text, (surface.get_width() - depth_effect_text.get_width() - 30, depth_effect_y_pos + 10))
         
         depth_switch_progress = 1.0 if is_depth_effect_enabled else 0.0 # برای انیمیشن فوری
@@ -5239,7 +5323,7 @@ def draw_settings_battery_screen(surface):
     bk_s = render_persian_text("< بازگشت", tf_sm, (255,255,255))
     surface.blit(bk_s, bk_s.get_rect(center=back_r.center))
 
-    tit_s = render_persian_text("باتری", tf_title, txt_col)
+    tit_s = render_persian_text(get_string("battery", "باتری"), tf_title, txt_col)
     surface.blit(tit_s, tit_s.get_rect(right=sw-16, top=50))
 
     # ===== باتری بزرگ iOS-style =====
@@ -5408,8 +5492,8 @@ def draw_notes_context_menu(surface):
     draw_rounded_rect(surface, shadow_rect, (0, 0, 0, 100), 10)
     draw_rounded_rect(surface, menu_rect, get_current_color('context_menu_bg'), 8)
     text_color = get_current_color('context_menu_text')
-    copy_text = render_persian_text("کپی", text_font, text_color)
-    paste_text = render_persian_text("جایگذاری", text_font, text_color)
+    copy_text = render_persian_text(get_string("copy", "کپی"), text_font, text_color)
+    paste_text = render_persian_text(get_string("paste", "جایگذاری"), text_font, text_color)
     copy_rect = copy_text.get_rect(right=menu_rect.right - 15, top=menu_rect.top + 10)
     paste_rect = paste_text.get_rect(right=menu_rect.right - 15, top=copy_rect.bottom + 10)
     surface.blit(copy_text, copy_rect); surface.blit(paste_text, paste_rect)
@@ -5969,7 +6053,7 @@ def draw_folder_view():
     draw_rounded_rect(folder_bg_surface, folder_bg_surface.get_rect(), bg_color, 20 * ease_progress)
     screen.blit(folder_bg_surface, folder_rect.topleft)
     if ease_progress > 0.9:
-        folder_name_text = render_persian_text(opened_folder.get('name', 'پوشه'), text_font, get_current_color('settings_title'))
+        folder_name_text = render_persian_text(opened_folder.get('name', get_string('folder', 'پوشه')), text_font, get_current_color('settings_title'))
         screen.blit(folder_name_text, folder_name_text.get_rect(centerx=folder_rect.centerx, top=folder_rect.top + 15))
         folder_icons = opened_folder['contains']; cols = 3; padding = 20
         start_x = folder_rect.left + (folder_rect.width - (cols * icon_size + (cols - 1) * padding)) / 2; start_y = folder_rect.top + 50
@@ -6130,16 +6214,6 @@ while running:
                 events.remove(event)
                 # از آنجایی که لیست رویدادها را تغییر دادیم، حلقه داخلی را بشکن
                 break
-
-                for btn_name, btn_data in cc_buttons.items():
-                    if btn_data.get('type') == 'media_btn' and btn_data.get('rect') and btn_data['rect'].collidepoint(event.pos):
-                        if btn_name == 'media_prev':
-                            play_previous_song()
-                        elif btn_name == 'media_play':
-                            toggle_music_play_pause()
-                        elif btn_name == 'media_next':
-                            play_next_song()
-                        break 
         
     for event in events:
         if event.type == pygame.QUIT: running = False
@@ -6184,13 +6258,17 @@ while running:
                 is_dragging_cc_content = True
                 cc_drag_start_y = event.pos[1]
                 
-                # بررسی کلیک روی اسلایدرها
+                # بررسی کلیک روی اسلایدرها (عمودی - پر شدن از پایین به بالا)
                 if cc_buttons.get('brightness_slider', {}).get('rect', pygame.Rect(0,0,0,0)).collidepoint(event.pos):
                     is_scrubbing_brightness = True
                     is_dragging_cc_content = False # اسکراب کردن اسلایدر نباید کل پنل را بکشد
+                    rect = cc_buttons['brightness_slider']['rect']
+                    cc_brightness = max(0.0, min(1.0, (rect.bottom - event.pos[1]) / rect.height))
                 elif cc_buttons.get('volume_slider', {}).get('rect', pygame.Rect(0,0,0,0)).collidepoint(event.pos):
                     is_scrubbing_volume = True
                     is_dragging_cc_content = False
+                    rect = cc_buttons['volume_slider']['rect']
+                    cc_volume = max(0.0, min(1.0, (rect.bottom - event.pos[1]) / rect.height))
                 
                 # بررسی کلیک روی دکمهها
                 for btn_name, btn_data in cc_buttons.items():
@@ -6206,19 +6284,14 @@ while running:
                     if delta_y > 0: # فقط کشیدن به پایین مجاز است
                         cc_vertical_offset = delta_y * 0.4
                 
-                # مدیریت حرکت روی اسلایدرها
+                # مدیریت حرکت روی اسلایدرها (عمودی - پر شدن از پایین به بالا)
                 if is_scrubbing_brightness:
                     rect = cc_buttons['brightness_slider']['rect']
-                    # محاسبه بر اساس پدینگ داخل اسلایدر
-                    bar_inner_width = rect.width - 80 # (40 padding left, 40 padding right in draw_cc_slider)
-                    click_x = event.pos[0] - (rect.left + 40)
-                    cc_brightness = max(0.0, min(1.0, click_x / bar_inner_width))
+                    cc_brightness = max(0.0, min(1.0, (rect.bottom - event.pos[1]) / rect.height))
                 
                 if is_scrubbing_volume:
                     rect = cc_buttons['volume_slider']['rect']
-                    bar_inner_width = rect.width - 80
-                    click_x = event.pos[0] - (rect.left + 40)
-                    cc_volume = max(0.0, min(1.0, click_x / bar_inner_width))
+                    cc_volume = max(0.0, min(1.0, (rect.bottom - event.pos[1]) / rect.height))
 
             if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if is_dragging_cc_content:
@@ -6231,11 +6304,20 @@ while running:
                 for btn_name, btn_data in cc_buttons.items():
                     # چک کردن اگر دکمه فشرده شده بود
                     if btn_data.get('is_pressed'):
-                        # اگر ماوس هنوز روی دکمه بود، آن را فعال/غیرفعال کن
+                        # اگر ماوس هنوز روی دکمه بود، عملیات مربوطه اجرا شود
                         if btn_data.get('rect') and btn_data['rect'].collidepoint(event.pos):
-                            btn_data['is_active'] = not btn_data['is_active']
-                            # (اختیاری) میتوانید اینجا منطق واقعی را اضافه کنید
-                            # if btn_name == 'flashlight': print("Flashlight toggled")
+                            if btn_data.get('type') == 'media_btn':
+                                # دکمه‌های مدیا پلیر: عمل واقعی پخش/توقف/قبلی/بعدی
+                                if btn_name == 'media_prev':
+                                    play_previous_song()
+                                elif btn_name == 'media_play':
+                                    toggle_music_play_pause()
+                                elif btn_name == 'media_next':
+                                    play_next_song()
+                            else:
+                                btn_data['is_active'] = not btn_data['is_active']
+                                # (اختیاری) میتوانید اینجا منطق واقعی را اضافه کنید
+                                # if btn_name == 'flashlight': print("Flashlight toggled")
                     
                     # ریست کردن وضعیت فشرده شدن
                     btn_data['is_pressed'] = False
